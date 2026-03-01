@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bookmarks</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Instrument+Serif:ital@0;1&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0b;
+    --surface: #111113;
+    --border: rgba(255,255,255,0.06);
+    --text: #e8e8e8;
+    --muted: #666;
+    --accent: #f0c040;
+    --hover: rgba(255,255,255,0.04);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Syne', sans-serif; min-height: 100vh; }
+
+  .sidebar {
+    position: fixed; left: 0; top: 0; bottom: 0; width: 72px;
+    background: var(--surface); border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; align-items: center;
+    padding: 24px 0; gap: 8px; z-index: 100;
+  }
+  .logo {
+    width: 40px; height: 40px; background: var(--accent); border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; font-weight: 800; color: #000; margin-bottom: 16px;
+  }
+  .nav-btn {
+    width: 44px; height: 44px; border-radius: 12px; border: none;
+    background: transparent; color: var(--muted); cursor: pointer;
+    display: flex; align-items: center; justify-content: center; transition: all 0.2s;
+  }
+  .nav-btn:hover, .nav-btn.active { background: var(--hover); color: var(--accent); }
+
+  .main { margin-left: 72px; max-width: 680px; padding: 0 0 80px; }
+
+  .header {
+    position: sticky; top: 0;
+    background: rgba(10,10,11,0.92); backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border); padding: 20px 24px 16px; z-index: 50;
+  }
+  .header-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .header h1 { font-family: 'Instrument Serif', serif; font-size: 26px; font-weight: 400; letter-spacing: -0.5px; }
+  .header h1 span { color: var(--accent); font-style: italic; }
+  .count-badge { font-size: 11px; font-weight: 600; color: var(--muted); font-family: 'DM Mono', monospace; }
+
+  .search-wrap { position: relative; }
+  .search-wrap svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+  #search {
+    width: 100%; background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+    border-radius: 10px; color: var(--text); font-family: 'Syne', sans-serif; font-size: 13px;
+    padding: 10px 12px 10px 38px; outline: none; transition: border-color 0.2s;
+  }
+  #search:focus { border-color: rgba(240,192,64,0.3); }
+  #search::placeholder { color: var(--muted); }
+
+  /* Filter rows */
+  .filter-section { border-bottom: 1px solid var(--border); }
+  .filter-label {
+    padding: 8px 24px 4px;
+    font-size: 9px; font-weight: 700; color: var(--muted);
+    letter-spacing: 1.5px; text-transform: uppercase; font-family: 'DM Mono', monospace;
+  }
+  .filter-bar {
+    display: flex; gap: 6px; padding: 6px 24px 12px;
+    overflow-x: auto; scrollbar-width: none;
+  }
+  .filter-bar::-webkit-scrollbar { display: none; }
+  .filter-chip {
+    flex-shrink: 0; padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border);
+    background: transparent; color: var(--muted); font-family: 'DM Mono', monospace;
+    font-size: 11px; cursor: pointer; transition: all 0.2s; white-space: nowrap;
+  }
+  .filter-chip:hover { border-color: rgba(255,255,255,0.2); color: var(--text); }
+  .filter-chip.active { background: var(--accent); border-color: var(--accent); color: #000; font-weight: 600; }
+
+  /* Topic chip colors when active */
+  .filter-chip[data-topic="ai"].active      { background: #7dd3fc; border-color: #7dd3fc; color: #000; }
+  .filter-chip[data-topic="design"].active  { background: #c4b5fd; border-color: #c4b5fd; color: #000; }
+  .filter-chip[data-topic="music"].active   { background: #f9a8d4; border-color: #f9a8d4; color: #000; }
+  .filter-chip[data-topic="ads"].active     { background: #86efac; border-color: #86efac; color: #000; }
+  .filter-chip[data-topic="mindset"].active { background: #fdba74; border-color: #fdba74; color: #000; }
+  .filter-chip[data-topic="vibes"].active   { background: #f0c040; border-color: #f0c040; color: #000; }
+  .filter-chip[data-topic="cars"].active    { background: #fb7185; border-color: #fb7185; color: #000; }
+  .filter-chip[data-topic="rabbit hole"].active { background: #a78bfa; border-color: #a78bfa; color: #000; }
+
+  /* Topic dot on tweet */
+  .topic-dot {
+    display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+    margin-right: 5px; flex-shrink: 0; vertical-align: middle;
+  }
+  .topic-ai        { background: #7dd3fc; }
+  .topic-design    { background: #c4b5fd; }
+  .topic-music     { background: #f9a8d4; }
+  .topic-ads       { background: #86efac; }
+  .topic-mindset   { background: #fdba74; }
+  .topic-vibes     { background: #f0c040; }
+  .topic-cars      { background: #fb7185; }
+  .topic-rabbit-hole { background: #a78bfa; }
+
+  /* Tweet */
+  .tweet {
+    padding: 18px 24px 16px; border-bottom: 1px solid var(--border);
+    display: grid; grid-template-columns: 40px 1fr; gap: 12px;
+    animation: fadeIn 0.3s ease both;
+  }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+
+  .avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; }
+  .tweet-meta { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
+  .tweet-name { font-size: 14px; font-weight: 700; }
+  .tweet-handle { font-size: 12px; color: var(--muted); font-family: 'DM Mono', monospace; }
+  .tweet-date { font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; margin-left: auto; }
+
+  .tweet-text {
+    font-size: 14px; line-height: 1.6; color: #d0d0d0;
+    white-space: pre-wrap; word-break: break-word; margin-bottom: 2px;
+  }
+  .tweet-text a { color: #5ba3d9; text-decoration: none; }
+  .tweet-text a:hover { text-decoration: underline; }
+  .tweet-text.collapsed { max-height: 280px; overflow: hidden; position: relative; }
+  .tweet-text.collapsed::after {
+    content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 60px;
+    background: linear-gradient(transparent, var(--bg));
+  }
+  .show-more-btn {
+    background: none; border: none; color: var(--accent); font-size: 13px;
+    font-family: 'Syne', sans-serif; cursor: pointer; padding: 4px 0;
+    margin-top: 4px; display: block; font-weight: 600;
+  }
+  .show-more-btn:hover { text-decoration: underline; }
+
+  .open-x-link {
+    display: inline-flex; align-items: center; gap: 5px;
+    color: var(--muted); font-size: 12px; font-family: 'DM Mono', monospace;
+    text-decoration: none; margin-top: 10px; padding: 5px 10px;
+    border: 1px solid var(--border); border-radius: 8px; transition: all 0.2s;
+  }
+  .open-x-link:hover { border-color: rgba(255,255,255,0.2); color: var(--text); }
+
+  /* Photos */
+  .media-wrap { margin-top: 12px; }
+  .media-grid { border-radius: 12px; overflow: hidden; display: grid; gap: 2px; }
+  .media-grid.count-1 { grid-template-columns: 1fr; }
+  .media-grid.count-2 { grid-template-columns: 1fr 1fr; }
+  .media-grid.count-3 { grid-template-columns: 1fr 1fr; }
+  .media-grid.count-3 .media-item:first-child { grid-row: 1/3; }
+  .media-grid.count-4 { grid-template-columns: 1fr 1fr; }
+  .media-item {
+    position: relative; overflow: hidden; background: #1a1a1a;
+    cursor: pointer; aspect-ratio: 1/1;
+  }
+  .media-grid.count-1 .media-item { aspect-ratio: unset; max-height: 420px; }
+  .media-item img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.3s; }
+  .media-item:hover img { transform: scale(1.03); }
+
+  /* ── Inline video player ── */
+  .video-player {
+    margin-top: 12px;
+    border-radius: 14px;
+    overflow: hidden;
+    background: #000;
+    position: relative;
+    /* aspect ratio will be set inline */
+  }
+  /* The actual <video> fills the container completely */
+  .video-player video {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    position: absolute;
+    inset: 0;
+  }
+  /* Thumbnail shown before play */
+  .video-player .vthumb {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    position: absolute;
+    inset: 0;
+    transition: opacity 0.25s;
+    z-index: 2;
+  }
+  .video-player.playing .vthumb { opacity: 0; pointer-events: none; }
+
+  /* Big play button overlay (shown before first play) */
+  .video-player .play-overlay {
+    position: absolute; inset: 0; z-index: 3;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.25);
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  .video-player.playing .play-overlay { display: none; }
+  .play-circle {
+    width: 58px; height: 58px; border-radius: 50%;
+    background: rgba(0,0,0,0.72); border: 2px solid rgba(255,255,255,0.25);
+    display: flex; align-items: center; justify-content: center;
+    backdrop-filter: blur(6px); transition: transform 0.15s;
+  }
+  .play-overlay:hover .play-circle { transform: scale(1.08); }
+
+  /* Controls bar */
+  .video-controls {
+    position: absolute; bottom: 0; left: 0; right: 0; z-index: 4;
+    padding: 6px 12px 8px;
+    background: linear-gradient(transparent, rgba(0,0,0,0.85));
+    display: flex; align-items: center; gap: 8px;
+    opacity: 0; transition: opacity 0.2s;
+  }
+  .video-player:hover .video-controls,
+  .video-player.playing .video-controls { opacity: 1; }
+
+  .vc-btn {
+    background: none; border: none; color: #fff; cursor: pointer;
+    width: 26px; height: 26px; display: flex; align-items: center; justify-content: center;
+    border-radius: 6px; flex-shrink: 0; transition: background 0.15s; padding: 0;
+  }
+  .vc-btn:hover { background: rgba(255,255,255,0.15); }
+
+  .vc-progress {
+    flex: 1; height: 4px; background: rgba(255,255,255,0.25); border-radius: 2px; cursor: pointer; position: relative;
+  }
+  .vc-progress-fill {
+    height: 100%; background: var(--accent); border-radius: 2px; width: 0%;
+    pointer-events: none; transition: width 0.08s linear;
+  }
+  .vc-time {
+    font-size: 10px; color: rgba(255,255,255,0.75);
+    font-family: 'DM Mono', monospace; white-space: nowrap; flex-shrink: 0;
+  }
+  .vc-vol {
+    width: 56px; height: 3px; -webkit-appearance: none; appearance: none;
+    background: rgba(255,255,255,0.25); border-radius: 2px; cursor: pointer; flex-shrink: 0;
+  }
+  .vc-vol::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 10px; height: 10px;
+    border-radius: 50%; background: #fff; cursor: pointer;
+  }
+
+  /* GIF */
+  .gif-container {
+    margin-top: 12px; border-radius: 14px; overflow: hidden;
+    position: relative; background: #000;
+  }
+  .gif-container video { display: block; width: 100%; max-height: 480px; object-fit: cover; }
+  .gif-badge {
+    position: absolute; bottom: 8px; left: 8px;
+    background: rgba(0,0,0,0.75); color: #fff;
+    font-size: 10px; font-weight: 700; font-family: 'DM Mono', monospace;
+    padding: 2px 7px; border-radius: 4px; letter-spacing: 1px; z-index: 2;
+  }
+
+  /* Lightbox */
+  .lightbox {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.96);
+    z-index: 1000; align-items: center; justify-content: center;
+  }
+  .lightbox.open { display: flex; }
+  #lb-content img, #lb-content video {
+    max-width: 92vw; max-height: 92vh; border-radius: 8px; object-fit: contain; display: block;
+  }
+  .lb-close {
+    position: absolute; top: 20px; right: 20px;
+    background: rgba(255,255,255,0.1); border: none; color: #fff;
+    width: 40px; height: 40px; border-radius: 50%; font-size: 18px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: background 0.2s;
+  }
+  .lb-close:hover { background: rgba(255,255,255,0.2); }
+
+  /* Stats */
+  .stats { padding: 12px 24px; display: flex; gap: 20px; border-bottom: 1px solid var(--border); }
+  .stat { display: flex; flex-direction: column; gap: 2px; }
+  .stat-num { font-size: 18px; font-weight: 700; font-family: 'DM Mono', monospace; }
+  .stat-label { font-size: 10px; color: var(--muted); font-weight: 500; letter-spacing: 0.8px; text-transform: uppercase; }
+
+  .empty { padding: 80px 24px; text-align: center; color: var(--muted); }
+  .empty p { font-size: 14px; margin-top: 8px; }
+
+  @media (max-width: 600px) {
+    .sidebar { width: 0; overflow: hidden; }
+    .main { margin-left: 0; }
+    .tweet { padding: 14px 16px 14px; }
+    .header { padding: 14px 16px; }
+    .filter-bar { padding: 6px 16px 10px; }
+    .filter-label { padding: 8px 16px 4px; }
+  }
+</style>
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="logo">B</div>
+  <button class="nav-btn active" title="Bookmarks">
+    <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+  </button>
+  <button class="nav-btn" title="Search" onclick="document.getElementById('search').focus()">
+    <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+  </button>
+</aside>
+
+<div class="main">
+  <div class="header">
+    <div class="header-top">
+      <h1>Book<span>marks</span></h1>
+      <span class="count-badge" id="count-badge">100 saved</span>
+    </div>
+    <div class="search-wrap">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" id="search" placeholder="Search bookmarks..." autocomplete="off">
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><span class="stat-num" id="stat-total">—</span><span class="stat-label">Saved</span></div>
+    <div class="stat"><span class="stat-num" id="stat-photos">—</span><span class="stat-label">Photos</span></div>
+    <div class="stat"><span class="stat-num" id="stat-videos">—</span><span class="stat-label">Videos</span></div>
+    <div class="stat"><span class="stat-num" id="stat-authors">—</span><span class="stat-label">Authors</span></div>
+  </div>
+
+  <div class="filter-section">
+    <div class="filter-label">Media</div>
+    <div class="filter-bar" id="media-filters">
+      <button class="filter-chip active" data-media="all">All</button>
+      <button class="filter-chip" data-media="photo">📷 Photos</button>
+      <button class="filter-chip" data-media="video">🎬 Videos</button>
+      <button class="filter-chip" data-media="text">✏️ Text only</button>
+    </div>
+    <div class="filter-label">Topic</div>
+    <div class="filter-bar" id="topic-filters">
+      <button class="filter-chip active" data-topic="all">All</button>
+      <button class="filter-chip" data-topic="ai">🤖 AI &amp; Tech</button>
+      <button class="filter-chip" data-topic="design">🎨 Design</button>
+      <button class="filter-chip" data-topic="music">🎵 Music</button>
+      <button class="filter-chip" data-topic="ads">📈 Ads &amp; Marketing</button>
+      <button class="filter-chip" data-topic="mindset">💡 Mindset</button>
+      <button class="filter-chip" data-topic="cars">🚗 Cars</button>
+      <button class="filter-chip" data-topic="rabbit hole">🕳️ Rabbit Hole</button>
+      <button class="filter-chip" data-topic="vibes">✨ Vibes</button>
+    </div>
+  </div>
+
+  <div id="feed"></div>
+</div>
+
+<div class="lightbox" id="lightbox" onclick="if(event.target===this)closeLightbox()">
+  <button class="lb-close" onclick="closeLightbox()">✕</button>
+  <div id="lb-content"></div>
+</div>
+
+<script>
+const TWEETS = [{"id": "2028055985332355163", "bookmark_date": "2026-03-01T12:38:20.961Z", "tweeted_at": "2026-03-01T10:33:21.000Z", "screen_name": "thebeautyofsaas", "name": "BOSS", "avatar": "https://pbs.twimg.com/profile_images/2012506138550349824/H7NOzq7E_normal.jpg", "text": "this is a waste of time for 80% of people trying to improve their quality of life\n\nyou need to learn how to use AI and optimize your workflows, which should take you &lt;2 wks. the REAL advantage is learning how to be HUMAN. Sell, market, become aware, reprogram your thoughts...", "tweet_url": "https://x.com/thebeautyofsaas/status/2028055985332355163", "media": [], "is_long": false, "topic": "ai"}, {"id": "2025673371267023122", "bookmark_date": "2026-03-01T12:36:44.724Z", "tweeted_at": "2026-02-22T20:45:41.000Z", "screen_name": "yzycrave", "name": "crave", "avatar": "https://pbs.twimg.com/profile_images/1989359437476151296/-zhCslQW_normal.jpg", "text": "Ye Unreleased Of The Day - Day 1\n\n\ud83d\udcbf Can't Look In My Eyes (Feat. Kid Cudi)\n\ud83c\udfb5 Era: Cruel Winter (2012)", "tweet_url": "https://x.com/yzycrave/status/2025673371267023122", "media": [{"type": "video", "url": "https://video.twimg.com/amplify_video/2025673027569004544/vid/avc1/720x720/if5uX8uZ11tFsuEd.mp4?tag=21", "thumb": "https://pbs.twimg.com/amplify_video_thumb/2025673027569004544/img/GzuJeYZgeVKcUJIl.jpg", "duration": 326147, "aspect": [1, 1]}], "is_long": false, "topic": "music"}, {"id": "2027579258328256574", "bookmark_date": "2026-03-01T06:52:19.221Z", "tweeted_at": "2026-02-28T02:59:00.000Z", "screen_name": "itsandrewgao", "name": "andrew gao", "avatar": "https://pbs.twimg.com/profile_images/1815256830685450240/AXGpkYb0_normal.jpg", "text": "https://t.co/SW5R237ojC", "tweet_url": "https://x.com/itsandrewgao/status/2027579258328256574", "media": [], "is_long": false, "topic": "ai"}, {"id": "2027842412429685170", "bookmark_date": "2026-03-01T06:34:14.616Z", "tweeted_at": "2026-02-28T20:24:41.000Z", "screen_name": "iblamejulius", "name": "Buyer of Media", "avatar": "https://pbs.twimg.com/profile_images/1963029953244479488/aBdx6i8B_normal.jpg", "text": "Shalom nigga, \nHere\u2019s legit 7 figures worth of creative testing principles for you (alligned with the Andromegayjew shit) \n\nFirst things first, account structure isn\u2019t nearly as important as messaging structure. \n\nYou can use CBO, ABO, ASC, flexible, I don\u2019t care and there are much better TECHNICAL media buyers out there than me who have content on this. \n\nWhat I\u2019ll be focused on how I personally \u201cbatch\u201d creatives, ideate on net new creatives and my variable hierarchy in the ad account. \n\nAny account structure shit is just my personal preference. \n\nBack to it: I use creative \u201cconcepts\u201d. \nI\u2019m sure you\u2019ve heard this term thrown around but there isn\u2019t a uniform definition of what a \u201cconcept\u201d is. \n\nMy personal defition is dumby simple: 1. \u201cwho exactly am I talking to\u201d and 2. \u201chow do I approach them\". That's it. As you can imagine, there's plenty of variations for both. \nThat's the job of the individual creative.  \n\nIn the ad account (again, personal preference):\n- Each concept gets an ID, i.e. CID 1.\n- Each concept is its own ad set. \n- Each unique creative is an ad\n- Each ad per concept gets a decimal I.e. CID 1.1, 1.2, etc. \n\nNow I'll go into how I build new concept. For the examples, assume I\u2019m selling beef tallow. \n\nI have 3 core building blocks for each concept (I personally know some people who do more/ less but this is what works best for me)\n\n1. Persona (the single most important building block) :\n- Highly specific demographics & psychographics pulled from my market research Manus skill.\nTheir exact situation, desires (spoken and unspoken), perceived roadblocks, pain points. \nSpecificity is more important than depth here, depth is what we\u2019ll test on the creative/ ad level.\n\nThat being said sometimes I\u2019ll bundle a couple persona subsets in one specific angle if my research points me in that direction.\n\nExample: \u201ccareer-driven man in his mid- 50s who\u2019s noticing that his youth and vitality is slipping away. Even though he\u2019s achieved material and career success, he lays awake at night reminiscing on how \u201calive\u201d he felt when he had \u201cless\u201d. \n\n2. Angle: \n- this is a specific use case/ utility of my product/ service that solves a specific problem my persona is currently experiencing.\n\nExample: \nProblem: vatality/ youth -> looking younger -> getting rid of the signs of aging on the face. \nUtility: Beef tallow has powerful nutrients that reverse the signs of aging. \n\n3. Sophistication level: \nWhat sophistication segment am I trying to speak to? Where exactly are they in their journey of discovering a solution to their pain? Sophistication (and awareness) is a sliding scale in every single market. Lot of people forget this. \n\nExamples: \na. \"Hasn't really tried any skincare products, he's too busy on more 'important' things like work to focus on his skin.\"  \nFor this awarness segment of my persona I simply need to build the belief that better skin = getting his youth/ vitality back -> briefly touch on the mechanism then introduce product. \n\nb. \"Has tried a bunch of serums and creams that promised the world but never yielded any results\" \nFor this sophistication segment of my persona I need to lean heavy into the UPM (unique problem mechanism) that has lead to all of his previous failed attempts then transition into why the core drivers of my mechanism overcome that UPM. \n\nFinal concept example:\nA career-driven man in his mid- 50s who desperately yearns for  youth and vitality. He can use beef tallow to turn back the clock and erase the years that his face is showing. He hasn't tried skin care before as he doesn't yet know that he can reverse the years from showing on his face. \n\nNow we get to the creatives in each concept. \n\nThere\u2019s two primary variables that I test, each has its own weight. \n\nVariable 1: copy (60-70% weight) .\nExamples (not an exhaustive list I\u2019d be here all day):\n\n- specific \u201cdrivers\u201d of the mechanism your product/ service has that logically align with the angle (super fucking important) \n\n- values, attitudes, lifestyle, ideology, I.e. LOHAS, environmentalist, conservative, culturalist, etc. \n\n- buyer type- specific messaging  I.e. auto-convincer, expressive, analytical, heard-follower, etc. \n\n- belief ladder/s based on the awareness/ sophistication level if there are specific biases I want to overcome. \n\n- tone. This is one of my favorite things to test. Ever notice how there can be two people sharing the same exact idea, but you tend to resonate with Person A over Person B simply due to how the idea is conveyed verbally? Some people resonate with humor, some with candor, others with empathy, etc. You can frame a message in a dozen ways to hit deeply with those people (pro tip: you can extract the most common tone patterns your persona is most likely to connect with during your market research process). \n\n- linguistic patterns & terminology used by the target persona. \n\n- specific pains, unfulfilled desires and core motivators. I won\u2019t test each individually if I see a common pattern from the research. \n\nExample: \"what if the face that stares back at you in the mirror every night could tell a different story? A story of a man who's as strong and full of life as he was in his 20s?)\n\nVariable 2: communication medium aka format.\nThis one\u2019s obvious, here are a few examples: \n\n- direct-to-camera video \n- animation \n- UGC selfie vid \n- product/ service demo \n- green screen\n- native b-roll \n- etc etc etc \n\nNote: I tend to lump statics into the same ad set but a few people like @markbuildsbrand advise against it. Mark is the \ud83d\udc10 so I highly advise you test his advice. \n\nAight that\u2019s it nigga", "tweet_url": "https://x.com/iblamejulius/status/2027842412429685170", "media": [], "is_long": true, "topic": "ads"}, {"id": "2027537482422657367", "bookmark_date": "2026-02-28T18:21:11.054Z", "tweeted_at": "2026-02-28T00:13:00.000Z", "screen_name": "neomechanica", "name": "NEOMECHANICA", "avatar": "https://pbs.twimg.com/profile_images/678896623368335360/hvNn0f5I_normal.jpg", "text": "", "tweet_url": "https://x.com/neomechanica/status/2027537482422657367", "media": [{"type": "photo", "url": "https://pbs.twimg.com/media/HBtEZkWWsAAWxyA.jpg"}], "is_long": false, "topic": "design"}, {"id": "2027769729448841604", "bookmark_date": "2026-02-28T18:04:17.267Z", "tweeted_at": "2026-02-28T15:35:52.000Z", "screen_name": "theJayAlto", "name": "Jay Alto", "avatar": "https://pbs.twimg.com/profile_images/1663279003245920256/xdq9i4T3_normal.jpg", "text": "steve jobs gave everyone a bicycle for the mind but forgot most people don't have anywhere to go", "tweet_url": "https://x.com/theJayAlto/status/2027769729448841604", "media": [], "is_long": false, "topic": "mindset"}, {"id": "2027640141645246907", "bookmark_date": "2026-02-28T16:52:51.584Z", "tweeted_at": "2026-02-28T07:00:56.000Z", "screen_name": "kuxshl", "name": "kushal", "avatar": "https://pbs.twimg.com/profile_images/2010708989231988736/IO_odUHH_normal.jpg", "text": "moneyyy branding \n\nw/ oakline", "tweet_url": "https://x.com/kuxshl/status/2027640141645246907", "media": [{"type": "photo", "url": "https://pbs.twimg.com/media/HCOf8jUWgAInkyV.jpg"}, {"type": "photo", "url": "https://pbs.twimg.com/media/HCOf8jUWMAIukhP.jpg"}, {"type": "photo", "url": "https://pbs.twimg.com/media/HCOf8jUWkAIbtxT.jpg"}, {"type": "photo", "url": "https://pbs.twimg.com/media/HCOf8j6aMAEfmHB.jpg"}], "is_long": false, "topic": "design"}, {"id": "2027018164870304068", "bookmark_date": "2026-02-27T12:13:46.462Z", "tweeted_at": "2026-02-26T13:49:25.000Z", "screen_name": "blacktwiterthrd", "name": "WELCOME TO BLACK TWlTTER \uea00", "avatar": "https://pbs.twimg.com/profile_images/1976427371080392704/3YKZ5yk7_normal.jpg", "text": "Man we need this type of music Back \ud83d\ude2d", "tweet_url": "https://x.com/blacktwiterthrd/status/2027018164870304068", "media": [{"type": "video", "url": "https://video.twimg.com/amplify_video/2026655497886019585/vid/avc1/1280x720/ic2ScwYtestSKTOS.mp4?tag=21", "thumb": "https://pbs.twimg.com/amplify_video_thumb/2026655497886019585/img/h5AvsodwsTQY3r-b.jpg", "duration": 298803, "aspect": [16, 9]}], "is_long": false, "topic": "music"}, {"id": "2027087326221107379", "bookmark_date": "2026-02-26T20:37:45.603Z", "tweeted_at": "2026-02-26T18:24:14.000Z", "screen_name": "sekachov", "name": "alexey", "avatar": "https://pbs.twimg.com/profile_images/2018412922423095296/m0w5Ud2-_normal.jpg", "text": "i have one upsetting observation: all the beautifully designed AI tools we\u2019ve seen so far (dot, humane, cobot) were basically dead on arrival, while complex, highly technical products (claude code, openclaw) gain mass adoption in seconds.\n\nwe're definitely missing something.", "tweet_url": "https://x.com/sekachov/status/2027087326221107379", "media": [{"type": "photo", "url": "https://pbs.twimg.com/media/HCGpKwNagAA2V5i.jpg"}, {"type": "photo", "url": "https://pbs.twimg.com/media/HCGpK_rawAACUFg.jpg"}, {"type": "photo", "url": "https://pbs.twimg.com/media/HCGpLSracAEb3RO.jpg"}, {"type": "photo", "url": "https://pbs.twimg.com/media/HCGpLg4aEAAbk9C.jpg"}], "is_long": false, "topic": "ai"}, {"id": "2026806631564972109", "bookmark_date": "2026-02-26T17:21:46.276Z", "tweeted_at": "2026-02-25T23:48:51.000Z", "screen_name": "takimunk", "name": "central dogma specialist", "avatar": "https://pbs.twimg.com/profile_images/1885431379984257024/QJ5Ooknw_normal.jpg", "text": "we are already in takeoff", "tweet_url": "https://x.com/takimunk/status/2026806631564972109", "media": [{"type": "photo", "url": "https://pbs.twimg.com/media/HCCp4Y2WAAAGSNU.jpg"}, {"type": "photo", "url": "https://pbs.twimg.com/media/HCCp4ZQXoAAuubW.jpg"}, {"type": "photo", "url": "https://pbs.twimg.com/media/HCCp4Y5WQAAlV11.jpg"}, {"type": "photo", "url": "https://pbs.twimg.com/media/HCCp4Y4WYAAeT0B.jpg"}], "is_long": false, "topic": "rabbit hole"}, {"id": "2027024771188150564", "bookmark_date": "2026-02-26T15:23:44.380Z", "tweeted_at": "2026-02-26T14:15:40.000Z", "screen_name": "DandiG_", "name": "Dan @ AdRevival.io", "avatar": "https://pbs.twimg.com/profile_images/1780839881956020224/Ds8YpIc7_normal.jpg", "text": "@adv_ceo @sebasons", "tweet_url": "https://x.com/DandiG_/status/2027024771188150564", "media": [], "is_long": false, "topic": "vibes"}, {"id": "2026590527467258065", "bookmark_date": "2026-02-26T05:01:51.308Z", "tweeted_at": "2026-02-25T09:30:08.000Z", "screen_name": "rahulluthra22", "name": "Rahul Luthra", "avatar": "https://pbs.twimg.com/profile_images/1910625930407796738/u6W98KHk_normal.jpg", "text": "Inter is cool, but have you tried these fonts?\n\n(using these in products I'm working on rn)", "tweet_url": "https://x.com/rahulluthra22/status/2026590527467258065", "media": [{"type": "photo", "url": "https://pbs.twimg.com/media/HB_lVO4aMAQgRdw.jpg"}, {"type": "photo", "url": "https://pbs.twimg.com/media/HB_lVdMboAAAf4K.jpg"}, {"type": "photo", "url": "https://pbs.twimg.com/media/HB_lVvSaMAIhict.jpg"}, {"type": "photo", "url": "https://pbs.twimg.com/media/HB_lWBHaEAEBRhF.jpg"}], "is_long": false, "topic": "design"}, {"id": "2026769687636217923", "bookmark_date": "2026-02-26T04:52:07.659Z", "tweeted_at": "2026-02-25T21:22:03.000Z", "screen_name": "CEOLandshark", "name": "Pyrate", "avatar": "https://pbs.twimg.com/profile_images/1763200846492270592/9BoVd5cZ_normal.jpg", "text": "@AlchemyAmerican You should look into Gurdjieff. It answers everything you're looking for and more, it just needs digging. Given how popular your show will get over time, it'd also be a service to the world", "tweet_url": "https://x.com/CEOLandshark/status/2026769687636217923", "media": [], "is_long": false, "topic": "mindset"}, {"id": "2026757422358917524", "bookmark_date": "2026-02-25T20:38:02.003Z", "tweeted_at": "2026-02-25T20:33:19.000Z", "screen_name": "Lukealexxander", "name": "Luke Alexander", "avatar": "https://pbs.twimg.com/profile_images/1944419427681738752/u20w9a6A_normal.jpg", "text": "Join the best AI/business mastermind online for those wanting to maximize their AI output: https://t.co/1axs3Hnnbl", "tweet_url": "https://x.com/Lukealexxander/status/2026757422358917524", "media": [], "is_long": false, "topic": "vibes"}, {"id": "2026325419394474466", "bookmark_date": "2026-02-25T13:32:42.431Z", "tweeted_at": "2026-02-24T15:56:41.000Z", "screen_name": "damnidc__", "name": "\ud83e\udda2", "avatar": "https://pbs.twimg.com/profile_images/1996902070004183040/uuVh2Fxm_normal.jpg", "text": "I was offered $95K. I asked for $110K. They came back with $105K.I accepted. The 30 seconds of discomfort asking for more earned me an extra $10K/year. This is where context matters; that's $50K over 5 years. For 30 seconds of awkwardness.\n\nAlways negotiate. Always.", "tweet_url": "https://x.com/damnidc__/status/2026325419394474466", "media": [], "is_long": false, "topic": "mindset"}, {"id": "2026561413167055083", "bookmark_date": "2026-02-25T13:14:20.334Z", "tweeted_at": "2026-02-25T07:34:27.000Z", "screen_name": "beffjezos", "name": "Beff (e/acc)", "avatar": "https://pbs.twimg.com/profile_images/2005482858975023104/s9wmB9qT_normal.jpg", "text": "Fun-maxxing is the path to excellence in 2026", "tweet_url": "https://x.com/beffjezos/status/2026561413167055083", "media": [{"type": "video", "url": "https://video.twimg.com/ext_tw_video/2026561367272996864/pu/vid/avc1/720x1280/dCNsmgj-ceN5HSwO.mp4?tag=19", "thumb": "https://pbs.twimg.com/ext_tw_video_thumb/2026561367272996864/pu/img/YGEv4wN_Ukw1CwLS.jpg", "duration": 56007, "aspect": [9, 16]}], "is_long": false, "topic": "mindset"}, {"id": "2026362526670172335", "bookmark_date": "2026-02-25T13:11:27.993Z", "tweeted_at": "2026-02-24T18:24:09.000Z", "screen_name": "primed25", "name": "primed", "avatar": "https://pbs.twimg.com/profile_images/2026144160814637056/xGx5ItzY_normal.jpg", "text": "how it feels to jestermaxx in a room full of emploids", "tweet_url": "https://x.com/primed25/status/2026362526670172335", "media": [{"type": "video", "url": "https://video.twimg.com/amplify_video/2026362427445526528/vid/avc1/1000x720/_se3-AHb-qjtustl.mp4?tag=21", "thumb": "https://pbs.twimg.com/amplify_video_thumb/2026362427445526528/img/QVqN7DFjCG8qzewY.jpg", "duration": 60534, "aspect": [25, 18]}], "is_long": false, "topic": "mindset"}, {"id": "2026512730098708938", "bookmark_date": "2026-02-25T07:08:29.101Z", "tweeted_at": "2026-02-25T04:21:00.000Z", "screen_name": "Sierra_rak", "name": "Sierra", "avatar": "https://pbs.twimg.com/profile_images/1997684554967216128/CQSAP7cg_normal.jpg", "text": "These were her conditions to return to ice-skating:\n\n-She picks the music \n\n-She has full control over how she looks\n\n-She gets to eat whatever she wants. Her coaches can\u2019t starve her anymore\n\n-The choreo will be a collaborative effort w/ her, she gets to put elements in that she wants to\n\n-She decides when she needs a break from training, never pushing past her limit\n\n-And her father has to keep his controlling ass out of her art. She said \u2018I love you dad, but you\u2019re not allowed back in.\u2019\n\nAlyssa Liu danced for the joy of it, not for a medal, not for prestige, because she just loves her art.\n\nShe retired at 16 - a world champion - because she lost touch with the joy. The men around her were driving her career, starving, shaping and controlling her. She rebelled and cast off the chains to go live her best life as a normal teen girl.\n\nShe returned a young woman unapologetically and uncompromisingly in charge of her own joy and passion, here to do it her way, and only her way.\n\nBecame world champ at 19 in 2025, ans now gold medalist at 20.", "tweet_url": "https://x.com/Sierra_rak/status/2026512730098708938", "media": [{"type": "photo", "url": "https://pbs.twimg.com/media/HB-XEAYaYAAETkw.jpg"}, {"type": "photo", "url": "https://pbs.twimg.com/media/HB-XEBbasAAKn62.jpg"}], "is_long": true, "topic": "mindset"}, {"id": "2026220589938315548", "bookmark_date": "2026-02-24T20:24:46.691Z", "tweeted_at": "2026-02-24T09:00:08.000Z", "screen_name": "Dante_damned", "name": "Dante", "avatar": "https://pbs.twimg.com/profile_images/1999746744134041602/dRf0oGzj_normal.jpg", "text": "Brand Exploration on caffeine. \nWeb implementations comes next.\nStay Put!", "tweet_url": "https://x.com/Dante_damned/status/2026220589938315548", "media": [{"type": "photo", "url": "https://pbs.twimg.com/media/HB6TFWFasAE9s1F.jpg"}], "is_long": false, "topic": "design"}, {"id": "2025996158196498847", "bookmark_date": "2026-02-24T12:55:25.922Z", "tweeted_at": "2026-02-23T18:08:19.000Z", "screen_name": "MEvsIRS", "name": "neverpaytax", "avatar": "https://pbs.twimg.com/profile_images/1950590657363423233/Sj0X4icF_normal.jpg", "text": "https://t.co/l7pfZFuzB5", "tweet_url": "https://x.com/MEvsIRS/status/2025996158196498847", "media": [], "is_long": false, "topic": "vibes"}, {"id": "2025362800332202290", "bookmark_date": "2026-02-23T12:29:42.990Z", "tweeted_at": "2026-02-22T00:11:35.000Z", "screen_name": "damianplayer", "name": "Damian Player", "avatar": "https://pbs.twimg.com/profile_images/1919117586735742976/llztJcpL_normal.jpg", "text": "got offered $250K/year + equity at a fast-growing startup last week. turned it down.\n\nwhen you\u2019re building something that compounds, a salary is a ceiling.\n\nif you keep getting tempted by \u201csafe\u201d offers, ask yourself:\n\n-are you building something you\u2019d regret walking away from?\n\n-is your upside capped by someone else\u2019s cap table?\n\n-would you take the offer if your business was 6 months further along?\n\nthat last one is the tell. keep going and know that I\u2019m rooting for you..", "tweet_url": "https://x.com/damianplayer/status/2025362800332202290", "media": [], "is_long": true, "topic": "mindset"}, {"id": "2025880747274272940", "bookmark_date": "2026-02-23T12:26:47.242Z", "tweeted_at": "2026-02-23T10:29:43.000Z", "screen_name": "copywriter_adam", "name": "Adam Papp", "avatar": "https://pbs.twimg.com/profile_images/1969392792217530368/nfETYI3s_normal.jpg", "text": "@FinalPSD that's why you need to tell claude this specifically:\n\n\"cut out all the fluff that doesn't add to the sales argument, and cut every sentence that doesn't advance the sale forward\"\n\nsay cut every sentence, because if you say cut words, your copy will be very robotic", "tweet_url": "https://x.com/copywriter_adam/status/2025880747274272940", "media": [], "is_long": false, "topic": "ads"}, {"id": "2024833990507581497", "bookmark_date": "2026-02-22T15:54:23.410Z", "tweeted_at": "2026-02-20T13:10:17.000Z", "screen_name": "firstadopter", "name": "tae kim", "avatar": "https://pbs.twimg.com/profile_images/1920830186120957952/RdP-qw_N_normal.jpg", "text": "\u201cI love struggling, actually. It makes me feel alive\u201d \u2013 Alysa Liu", "tweet_url": "https://x.com/firstadopter/status/2024833990507581497", "media": [{"type": "video", "url": "https://video.twimg.com/amplify_video/2024833906021691392/vid/avc1/1920x1080/DZct1lybW_X6fBFY.mp4?tag=21", "thumb": "https://pbs.twimg.com/amplify_video_thumb/2024833906021691392/img/oowz0UZraTNPW8hd.jpg", "duration": 5237, "aspect": [16, 9]}], "is_long": false, "topic": "mindset"}, {"id": "2025143407853592849", "bookmark_date": "2026-02-22T06:27:45.077Z", "tweeted_at": "2026-02-21T09:39:48.000Z", "screen_name": "thebeautyofsaas", "name": "BOSS", "avatar": "https://pbs.twimg.com/profile_images/2012506138550349824/H7NOzq7E_normal.jpg", "text": "Would highly recommend everyone to pick this one \n\n&gt;fast read (can be done in less than an hour)\n&gt;perfect mix between being provocative, fun and helpful (hard to achieve when it comes to writing)\n&gt;ideas inside can be applied to any industry\n\nNo chance you will regret reading this", "tweet_url": "https://x.com/thebeautyofsaas/status/2025143407853592849", "media": [{"type": "photo", "url": "https://pbs.twimg.com/media/HBrAbzWWEAABgDo.jpg"}], "is_long": true, "topic": "vibes"}, {"id": "2025219068341477384", "bookmark_date": "2026-02-21T22:09:28.164Z", "tweeted_at": "2026-02-21T14:40:27.000Z", "screen_name": "amyoder", "name": "Adam Yoder", "avatar": "https://pbs.twimg.com/profile_images/1917748923894022144/PewMm2U9_normal.jpg", "text": "@NickHintonn It\u2019s more the fact that someone who *could* do these drugs are either very rich or very poor, so they have a LOT of time on their hands and starting asking themselves non-survivalist questions and start seeking more creative answers to life", "tweet_url": "https://x.com/amyoder/status/2025219068341477384", "media": [], "is_long": false, "topic": "mindset"}, {"id": "2025305476603515079", "bookmark_date": "2026-02-21T22:01:59.920Z", "tweeted_at": "2026-02-21T20:23:48.000Z", "screen_name": "lamxnt", "name": "riley.", "avatar": "https://pbs.twimg.com/profile_images/1846639343248531456/ZvakmOW9_normal.jpg", "text": "Claude Code (in VS Code) as home base\n\nGHL API v2 - custom MCP\nWhop MCP\nCloudflare MCP\nMeta ads MCP\nGemini + X API (deep research)\nCustom python agent + Nano Banana\n\n+ custom Claude Skills for copywriting, landing page design, etc\n\nI can:\n\n- Have Gemini + X do deep research\n- Claude writes TSL (foundation for offer)\n- Claude builds landing page, integrates GHL HTML form\n- Whop MCP creates product + integrates checkout into funnel (+ fires webhooks to GHL for CRM\n- Installs meta pixel\n- Nano banana generates static ad creatives\n- Claude writes ad copy, uploads to ads manager + ad creatives\n- Syncs up with Whop API to make sure event match score is 8.5+\n- Launches campaign \n\nCan also handle Microsoft clarity and G4A for tracking. I\u2019m sure Hyros would be easy sync here too\n\nSaaS is dead, democratization of API access is basically letting us build super SaaS\n\nNext step is figuring out Figma MCP -> Claude -> GHL form + Whop checkout for really great funnel design", "tweet_url": "https://x.com/lamxnt/status/2025305476603515079", "media": [], "is_long": true, "topic": "ai"}, {"id": "2025297667463446958", "bookmark_date": "2026-02-21T20:20:03.164Z", "tweeted_at": "2026-02-21T19:52:46.000Z", "screen_name": "RyanClogg", "name": "Ryan Clogg", "avatar": "https://pbs.twimg.com/profile_images/1896353952645419008/oxbjeK8s_normal.jpg", "text": "AI Marketers,\n\n- Sales Pages / Order Forms\n- Listicles / Advertorials\n- Image &amp; Video Ads \n- Tracking\n- CRM &amp; Follow Ups\n- Email/SMS/Dials\n- Hosting\n- Design\n- Split Testing\n\nWhat tech stack are you currently using? \u2b07\ufe0f\u2b07\ufe0f\u2b07\ufe0f\n\nComment links, examples, etc.\n\nRT so we can crowdsource.", "tweet_url": "https://x.com/RyanClogg/status/2025297667463446958", "media": [{"type": "gif", "url": "https://video.twimg.com/tweet_video/HBtNfiCXUAAwVC4.mp4", "thumb": "https://pbs.twimg.com/tweet_video_thumb/HBtNfiCXUAAwVC4.jpg"}], "is_long": true, "topic": "ads"}, {"id": "2024700227111047581", "bookmark_date": "2026-02-20T09:36:35.078Z", "tweeted_at": "2026-02-20T04:18:45.000Z", "screen_name": "naval", "name": "Naval", "avatar": "https://pbs.twimg.com/profile_images/1256841238298292232/ycqwaMI2_normal.jpg", "text": "New podcast on AI (full episode). Links below.\n\nA Motorcycle for the Mind\n\n0:00 If you want to learn, do\n\n2:13 Vibe coding is the new product management\n\n6:49 Training models is the new coding\n\n10:13 Is traditional software engineering dead?\n\n13:07 There is no demand for average\n\n14:12 The hottest new programming language is English\n\n18:36 AI is adapting to us faster than we are adapting to it\n\n22:56 No entrepreneur is worried about AI taking their job\n\n26:46 The goal is not to have a job\n\n29:49 AIs are not alive\n\n32:55 AI fails the only true test of intelligence\n\n36:49 Early adopters of AI have an enormous edge\n\n39:37 AI meets you exactly where you are\n\n43:02 Always leverage the best intelligence\n\n44:37 If you can't define it, you can't program it\n\n49:37 The solution to AI anxiety is action", "tweet_url": "https://x.com/naval/status/2024700227111047581", "media": [{"type": "video", "url": "https://video.twimg.com/amplify_video/2024697027918249984/vid/avc1/1920x1080/0JkHCV83Nzc8N5zx.mp4?tag=21", "thumb": "https://pbs.twimg.com/amplify_video_thumb/2024697027918249984/img/r0sjTZbJvN2gIK5F.jpg", "duration": 3125815, "aspect": [16, 9]}], "is_long": true, "topic": "ai"}, {"id": "2024256613620855210", "bookmark_date": "2026-02-19T15:50:55.508Z", "tweeted_at": "2026-02-18T22:56:00.000Z", "screen_name": "sergeantsref", "name": "Sgt Sref", "avatar": "https://pbs.twimg.com/profile_images/1795370881625006080/1yt6p0On_normal.jpg", "text": "--sref 2860469180", "tweet_url": "https://x.com/sergeantsref/status/2024256613620855210", "media": [{"type": "photo", "url": "https://pbs.twimg.com/media/HBNThMpb0AAekiS.jpg"}, {"type": "photo", "url": "https://pbs.twimg.com/media/HBNThNbW4AABF5h.jpg"}, {"type": "photo", "url": "https://pbs.twimg.com/media/HBNThOvWcAETSyV.jpg"}, {"type": "photo", "url": "https://pbs.twimg.com/media/HBNTg0XXAAA5FSG.jpg"}], "is_long": false, "topic": "vibes"}, {"id": "2024258973663187151", "bookmark_date": "2026-02-19T05:59:15.951Z", "tweeted_at": "2026-02-18T23:05:22.000Z", "screen_name": "takimunk", "name": "central dogma specialist", "avatar": "https://pbs.twimg.com/profile_images/1885431379984257024/QJ5Ooknw_normal.jpg", "text": "generational wealth for humanity", "tweet_url": "https://x.com/takimunk/status/2024258973663187151", "media": [{"type": "photo", "url": "https://pbs.twimg.com/media/HBecyoYWsAAVQ7x.jpg"}, {"type": "photo", "url": "https://pbs.twimg.com/media/HBecyoVXAAA9vzV.jpg"}, {"type": "photo", "url": "https://pbs.twimg.com/media/HBecyobWQAAoE5F.jpg"}, {"type": "photo", "url": "https://pbs.twimg.com/media/HBecyodWYAAkcUD.jpg"}], "is_long": false, "topic": "vibes"}, {"id": "2024289533878042986", "bookmark_date": "2026-02-19T05:51:59.654Z", "tweeted_at": "2026-02-19T01:06:49.000Z", "screen_name": "champtgram", "name": "champ \ud83d\udcab", "avatar": "https://pbs.twimg.com/profile_images/1924863062433030144/9feD8IC2_normal.jpg", "text": "the PEAK male experience is landing in a new city, walking the streets with no plan and eating dinner alone somewhere you\u2019ve never been.\n\nnothing better. it\u2019s spiritual.", "tweet_url": "https://x.com/champtgram/status/2024289533878042986", "media": [{"type": "photo", "url": "https://pbs.twimg.com/media/HBe4mlvX0AASf2L.jpg"}], "is_long": false, "topic": "mindset"}, {"id": "2024082446245839115", "bookmark_date": "2026-02-18T18:47:32.411Z", "tweeted_at": "2026-02-18T11:23:55.000Z", "screen_name": "DTCMidas", "name": "DTC Midas", "avatar": "https://pbs.twimg.com/profile_images/1867183033310187520/ApCpRybP_normal.jpg", "text": "Want to improve my Claude scriptwriting and landing page skill.\n\nAny tips on what to train it on and what data to give it?", "tweet_url": "https://x.com/DTCMidas/status/2024082446245839115", "media": [], "is_long": false, "topic": "ai"}, {"id": "2024168385060155394", "bookmark_date": "2026-02-18T18:40:18.986Z", "tweeted_at": "2026-02-18T17:05:24.000Z", "screen_name": "TheJeremyHaynes", "name": "Jeremy Haynes", "avatar": "https://pbs.twimg.com/profile_images/2025764793727037440/NRFilRaL_normal.jpg", "text": "4 of my favorite marketing books", "tweet_url": "https://x.com/TheJeremyHaynes/status/2024168385060155394", "media": [{"type": "photo", "url": "https://pbs.twimg.com/media/HBdKaeCXcAAQP8D.jpg"}, {"type": "photo", "url": "https://pbs.twimg.com/media/HBdKad0XoAEE91U.jpg"}, {"type": "photo", "url": "https://pbs.twimg.com/media/HBdKaeHXMAEVVG3.jpg"}, {"type": "photo", "url": "https://pbs.twimg.com/media/HBdKaePWwAAUU0Y.jpg"}], "is_long": false, "topic": "ads"}, {"id": "2023364959598743919", "bookmark_date": "2026-02-17T10:44:23.395Z", "tweeted_at": "2026-02-16T11:52:53.000Z", "screen_name": "grav_stock", "name": "Gravstock", "avatar": "https://pbs.twimg.com/profile_images/1985352572014632960/874OgFzC_normal.jpg", "text": "Backgrounds for your next project", "tweet_url": "https://x.com/grav_stock/status/2023364959598743919", "media": [{"type": "photo", "url": "https://pbs.twimg.com/media/HBRvtP6XoAAomMt.jpg"}, {"type": "photo", "url": "https://pbs.twimg.com/media/HBRvtRZXEAAd8FR.jpg"}, {"type": "photo", "url": "https://pbs.twimg.com/media/HBRvtRoW0AATzMI.jpg"}, {"type": "photo", "url": "https://pbs.twimg.com/media/HBRvtUpWAAAT1el.jpg"}], "is_long": false, "topic": "design"}, {"id": "2023477665160953947", "bookmark_date": "2026-02-17T10:41:37.929Z", "tweeted_at": "2026-02-16T19:20:44.000Z", "screen_name": "Prof_Kalkyl", "name": "Oliver \u0ceb", "avatar": "https://pbs.twimg.com/profile_images/1989314606330765312/k5SJOaCh_normal.jpg", "text": "", "tweet_url": "https://x.com/Prof_Kalkyl/status/2023477665160953947", "media": [{"type": "photo", "url": "https://pbs.twimg.com/media/HBTWJ5pbcAER4uS.jpg"}], "is_long": false, "topic": "design"}, {"id": "2023430702382137463", "bookmark_date": "2026-02-17T10:35:15.679Z", "tweeted_at": "2026-02-16T16:14:07.000Z", "screen_name": "mxtaverse", "name": "Arjun*", "avatar": "https://pbs.twimg.com/profile_images/2009116203466543104/arzigYvR_normal.jpg", "text": "yes we do.", "tweet_url": "https://x.com/mxtaverse/status/2023430702382137463", "media": [{"type": "video", "url": "https://video.twimg.com/ext_tw_video/2023430661965774848/pu/vid/avc1/480x360/vu8Q3kGXA0b8X7p3.mp4?tag=19", "thumb": "https://pbs.twimg.com/ext_tw_video_thumb/2023430661965774848/pu/img/xkS5Xal0qAcO_W6K.jpg", "duration": 46277, "aspect": [4, 3]}], "is_long": false, "topic": "vibes"}, {"id": "2023352248403980659", "bookmark_date": "2026-02-17T09:07:18.177Z", "tweeted_at": "2026-02-16T11:02:22.000Z", "screen_name": "RahulChandwaney", "name": "Rahul C", "avatar": "https://pbs.twimg.com/profile_images/1623331765199966208/5s8BLcbI_normal.jpg", "text": "Sexualize your shapes", "tweet_url": "https://x.com/RahulChandwaney/status/2023352248403980659", "media": [{"type": "photo", "url": "https://pbs.twimg.com/media/HBRhzM_bMAAghnY.jpg"}, {"type": "photo", "url": "https://pbs.twimg.com/media/HBRh6iwbEAESfAm.jpg"}, {"type": "photo", "url": "https://pbs.twimg.com/media/HBRj3mPbMAA1oFL.jpg"}, {"type": "photo", "url": "https://pbs.twimg.com/media/HBRj4yIaMAAyYps.jpg"}], "is_long": false, "topic": "design"}, {"id": "2023410927593541802", "bookmark_date": "2026-02-17T03:37:38.660Z", "tweeted_at": "2026-02-16T14:55:32.000Z", "screen_name": "BrettFromDJ", "name": "Brett", "avatar": "https://pbs.twimg.com/profile_images/1912314745866035200/CtGKNv6o_normal.jpg", "text": "https://t.co/jJujkjJlmx", "tweet_url": "https://x.com/BrettFromDJ/status/2023410927593541802", "media": [], "is_long": false, "topic": "vibes"}, {"id": "2023462434728800286", "bookmark_date": "2026-02-16T19:49:08.658Z", "tweeted_at": "2026-02-16T18:20:13.000Z", "screen_name": "sohailscales", "name": "Sohail", "avatar": "https://pbs.twimg.com/profile_images/1972790475645231104/EcthrGRC_normal.jpg", "text": "Just rebuilt my client\u2019s entire LinkedIn profile in 10 minutes.\n\nI trained a GPT on 1,000+ top-performing profiles.\n\nIt optimizes everything headline, about section, experience in seconds.\n\nWant it? \n\nLike + comment \u201cProfile\u201d", "tweet_url": "https://x.com/sohailscales/status/2023462434728800286", "media": [{"type": "photo", "url": "https://pbs.twimg.com/media/HBTIW3haEAEvaUk.jpg"}], "is_long": false, "topic": "ads"}, {"id": "2021769464279138785", "bookmark_date": "2026-02-15T12:28:20.255Z", "tweeted_at": "2026-02-12T02:12:57.000Z", "screen_name": "cornski", "name": "Corn \u2727\u2363", "avatar": "https://pbs.twimg.com/profile_images/1646213816084987913/riQEthlg_normal.jpg", "text": "the secret to life is to literally jus start movin like dis", "tweet_url": "https://x.com/cornski/status/2021769464279138785", "media": [], "is_long": false, "topic": "vibes"}, {"id": "2022699431427019032", "bookmark_date": "2026-02-15T06:41:54.459Z", "tweeted_at": "2026-02-14T15:48:19.000Z", "screen_name": "patfscott", "name": "Patrick Scott", "avatar": "https://pbs.twimg.com/profile_images/1991574797323571200/vAksGinu_normal.jpg", "text": "https://t.co/yTGi4USWCm", "tweet_url": "https://x.com/patfscott/status/2022699431427019032", "media": [], "is_long": false, "topic": "vibes"}, {"id": "2022377733083533799", "bookmark_date": "2026-02-14T18:53:51.941Z", "tweeted_at": "2026-02-13T18:30:00.000Z", "screen_name": "Mericamemed", "name": "MERICA MEMED", "avatar": "https://pbs.twimg.com/profile_images/1710485897563566081/mWy3bWZo_normal.png", "text": "This will always live in my head rent free.", "tweet_url": "https://x.com/Mericamemed/status/2022377733083533799", "media": [{"type": "video", "url": "https://video.twimg.com/amplify_video/2022180984133922816/vid/avc1/720x500/5C_ByHLyPKD0oYJY.mp4?tag=16", "thumb": "https://pbs.twimg.com/amplify_video_thumb/2022180984133922816/img/Ff5ES9TMhluH52A0.jpg", "duration": 34156, "aspect": [36, 25]}], "is_long": false, "topic": "music"}, {"id": "2022478358714421438", "bookmark_date": "2026-02-14T13:25:53.837Z", "tweeted_at": "2026-02-14T01:09:51.000Z", "screen_name": "chxlametcinema", "name": "\u064d", "avatar": "https://pbs.twimg.com/profile_images/1995232614039359488/zCPQ5QvS_normal.jpg", "text": "let me binge watch all of these videos", "tweet_url": "https://x.com/chxlametcinema/status/2022478358714421438", "media": [{"type": "photo", "url": "https://pbs.twimg.com/media/HBFJWDDakAMxTO0.jpg"}, {"type": "photo", "url": "https://pbs.twimg.com/media/HBFJWCcWUAAGmfE.jpg"}, {"type": "photo", "url": "https://pbs.twimg.com/media/HBFJWDGakAMya7O.jpg"}], "is_long": false, "topic": "design"}, {"id": "2022063544897044809", "bookmark_date": "2026-02-13T17:15:16.934Z", "tweeted_at": "2026-02-12T21:41:31.000Z", "screen_name": "GermanicFren", "name": "\ud835\udd72\ud835\udd8a\ud835\udd97\ud835\udd92\ud835\udd86\ud835\udd93\ud835\udd8e\ud835\udd88 \ud835\udd71\ud835\udd97\ud835\udd8a\ud835\udd93 \ud83c\uddfa\ud83c\uddf2", "avatar": "https://pbs.twimg.com/profile_images/2024562386410082304/8_03vJ5l_normal.jpg", "text": "@BoardOfPeace \ud83d\ude02\ud83d\ude02\ud83d\ude02\ud83d\ude02\ud83d\ude02\ud83d\ude02\ud83d\ude02", "tweet_url": "https://x.com/GermanicFren/status/2022063544897044809", "media": [{"type": "photo", "url": "https://pbs.twimg.com/media/HA_QE0PbsAEkeGc.jpg"}], "is_long": false, "topic": "vibes"}, {"id": "2022062006011097338", "bookmark_date": "2026-02-13T06:53:15.403Z", "tweeted_at": "2026-02-12T21:35:24.000Z", "screen_name": "drydenwtbrown", "name": "Dryden", "avatar": "https://pbs.twimg.com/profile_images/1877806909627252736/P1LejNir_normal.jpg", "text": "https://t.co/GiaZ1EFUGY", "tweet_url": "https://x.com/drydenwtbrown/status/2022062006011097338", "media": [], "is_long": false, "topic": "vibes"}, {"id": "2021881754064204158", "bookmark_date": "2026-02-12T16:45:32.809Z", "tweeted_at": "2026-02-12T09:39:09.000Z", "screen_name": "Bqmbulu", "name": "Bambulu", "avatar": "https://pbs.twimg.com/profile_images/1883652364428611584/K_k6uH9a_normal.jpg", "text": "\"There must be something like the opposite of suicide, whereby a person radically and abruptly decides to start living\"", "tweet_url": "https://x.com/Bqmbulu/status/2021881754064204158", "media": [{"type": "video", "url": "https://video.twimg.com/ext_tw_video/2021881614159278080/pu/vid/avc1/1280x720/R-2yKC-1GH55f5HZ.mp4?tag=19", "thumb": "https://pbs.twimg.com/ext_tw_video_thumb/2021881614159278080/pu/img/SfXtGtskgDhuQ2QE.jpg", "duration": 23405, "aspect": [16, 9]}], "is_long": false, "topic": "mindset"}, {"id": "2021916889019220471", "bookmark_date": "2026-02-12T14:07:38.232Z", "tweeted_at": "2026-02-12T11:58:46.000Z", "screen_name": "wojakcodes", "name": "\u200eWojak Codes", "avatar": "https://pbs.twimg.com/profile_images/1776497278892810240/KK3en_ny_normal.jpg", "text": "being a nationalist in a poor country is so tormenting. you live a pathetic life and somehow have to feel proud of it.", "tweet_url": "https://x.com/wojakcodes/status/2021916889019220471", "media": [], "is_long": false, "topic": "rabbit hole"}, {"id": "2021833173508952540", "bookmark_date": "2026-02-12T06:59:53.131Z", "tweeted_at": "2026-02-12T06:26:07.000Z", "screen_name": "yourealazyfvck", "name": "David", "avatar": "https://pbs.twimg.com/profile_images/1890296376933621760/9HyVO3LQ_normal.jpg", "text": "This used to be the consensus but this is absolutely wrong when dealing with paid traffic\n\nCold paid traffic you need to throw them in the funnel IMMEDIATELY because you\u2019re trying to get a response. Also known as Direct Response.\n\nYou\u2019re talking to the 5% of the 5% of people who even read past headline or the hook/drop off point on the VSL.\n\nOn organic, you have the luxury of \u201cnurturing\u201d them with content and lead magnets, and all of that shit because you aren\u2019t paying for traffic and you\u2019re selling through evergreen content assets.\n\nThe biggest guys in info run two funnels:\n\n1 - direct to vsl\n2 - webinar optin to webinar for call booking / straight to checkout on a $1-2k course that they break even on or go negative on since the CAC is super high\n\nActually, this works even BETTER on B2B traffic in specific niche markets because they\u2019re not exposed to course sellers and internet marketing tactics outside of your run of the mill agency kid running a \u201cGet you 100 clients in the next 30 minutes or you don\u2019t pay and I\u2019ll suck you off\u201d offer\n\nIf you spend a few grand on B2B using DR principles and speak directly to ICP pain points you\u2019re essentially guaranteed profitability with enough reach and impressions, especially on an Optin -> VSL -> Book a Call funnel.\n\nBoth of these different customer profiles are attacked and marketed to in 2 incredibly different ways on the front end.\n\nThe long form VSL exists as the trust builder. Cold paid engages with your TOF and you immediately retarget them everywhere shoving all of your MOF content down their throat (like they\u2019re a follower of yours on organic).\n\nSince you\u2019re PAYING for traffic, you need them to convert as fast as possible so you do not pull any punches whatsoever in your sales process.\n\nTraffic + Offer = Cash.\n\nHope this helps.", "tweet_url": "https://x.com/yourealazyfvck/status/2021833173508952540", "media": [], "is_long": true, "topic": "ads"}, {"id": "2021614957582745929", "bookmark_date": "2026-02-11T17:31:42.208Z", "tweeted_at": "2026-02-11T15:59:00.000Z", "screen_name": "msnrhu", "name": "Mason Hughes", "avatar": "https://pbs.twimg.com/profile_images/1978424744773865472/nn3NX-En_normal.jpg", "text": "Before Ye got nerfed", "tweet_url": "https://x.com/msnrhu/status/2021614957582745929", "media": [{"type": "photo", "url": "https://pbs.twimg.com/media/HAKhvzLXkAAK_fN.png"}], "is_long": false, "topic": "music"}, {"id": "2021435299952562242", "bookmark_date": "2026-02-11T13:45:51.086Z", "tweeted_at": "2026-02-11T04:05:06.000Z", "screen_name": "anothercohen", "name": "Alex Cohen", "avatar": "https://pbs.twimg.com/profile_images/1886413225786232832/CjFMSLAg_normal.jpg", "text": "This is the most autistic thing I've ever vibe coded. \n\nA Mac app that turns your wallpaper into a 3D Earth view with day/night depending on where in the world you are. Can toggle:\n* Weather\n* Live flights\n* Zoomed views\n* Pollen/Air Quality\n* Globe spin\n\nShould I publish it?", "tweet_url": "https://x.com/anothercohen/status/2021435299952562242", "media": [{"type": "video", "url": "https://video.twimg.com/amplify_video/2021434320284512256/vid/avc1/2984x1790/9ZSawd9e_iAO4m7x.mp4?tag=21", "thumb": "https://pbs.twimg.com/amplify_video_thumb/2021434320284512256/img/pD6ffprtFxib8n8x.jpg", "duration": 78475, "aspect": [1492, 895]}], "is_long": false, "topic": "ai"}, {"id": "2021373203504066677", "bookmark_date": "2026-02-11T13:36:37.608Z", "tweeted_at": "2026-02-10T23:58:21.000Z", "screen_name": "a16z", "name": "a16z", "avatar": "https://pbs.twimg.com/profile_images/1919488160125616128/QAZXTMEj_normal.png", "text": "", "tweet_url": "https://x.com/a16z/status/2021373203504066677", "media": [{"type": "photo", "url": "https://pbs.twimg.com/media/HA1cN2-aMAANiYO.jpg"}], "is_long": false, "topic": "vibes"}, {"id": "2021014143097016364", "bookmark_date": "2026-02-10T21:38:10.362Z", "tweeted_at": "2026-02-10T00:11:34.000Z", "screen_name": "tittyrespecter", "name": "hersch", "avatar": "https://pbs.twimg.com/profile_images/1885378070179123201/bCReMlUh_normal.jpg", "text": "people respect the maxxer. it doesn't matter what you're maxxing as long as you're maxxing \n\nnobody chanted \"midimus\" in the colosseum", "tweet_url": "https://x.com/tittyrespecter/status/2021014143097016364", "media": [{"type": "photo", "url": "https://pbs.twimg.com/media/HAwVpsVacAAi-9L.jpg"}], "is_long": false, "topic": "mindset"}, {"id": "2021199913292529737", "bookmark_date": "2026-02-10T18:03:50.351Z", "tweeted_at": "2026-02-10T12:29:46.000Z", "screen_name": "DejaRu22", "name": "DR22 \u03a9 \ud83e\udeac\ud83c\udfad", "avatar": "https://pbs.twimg.com/profile_images/1998774445671067650/6zQGi6pT_normal.jpg", "text": "@thebeautyofsaas Top 3\n\nMusashi\nNapoleon\nCaesar", "tweet_url": "https://x.com/DejaRu22/status/2021199913292529737", "media": [], "is_long": false, "topic": "mindset"}, {"id": "2020959876676190442", "bookmark_date": "2026-02-10T04:41:47.792Z", "tweeted_at": "2026-02-09T20:35:56.000Z", "screen_name": "beechinour", "name": "beech", "avatar": "https://pbs.twimg.com/profile_images/1939776625538711553/3fE5abyC_normal.jpg", "text": "", "tweet_url": "https://x.com/beechinour/status/2020959876676190442", "media": [{"type": "video", "url": "https://video.twimg.com/amplify_video/2020957397506760706/vid/avc1/2510x1482/bXeSuVKwtwYzFuQE.mp4?tag=21", "thumb": "https://pbs.twimg.com/amplify_video_thumb/2020957397506760706/img/UflGlxeCw-07l5HH.jpg", "duration": 15255, "aspect": [1255, 741]}], "is_long": false, "topic": "music"}, {"id": "2020572905130938532", "bookmark_date": "2026-02-09T13:25:48.564Z", "tweeted_at": "2026-02-08T18:58:15.000Z", "screen_name": "thebeautyofsaas", "name": "BOSS", "avatar": "https://pbs.twimg.com/profile_images/2012506138550349824/H7NOzq7E_normal.jpg", "text": "https://t.co/dvs7U23AeC", "tweet_url": "https://x.com/thebeautyofsaas/status/2020572905130938532", "media": [], "is_long": false, "topic": "vibes"}, {"id": "2020474891955249203", "bookmark_date": "2026-02-09T06:20:02.360Z", "tweeted_at": "2026-02-08T12:28:47.000Z", "screen_name": "aibytekat", "name": "Katyayani Shukla", "avatar": "https://pbs.twimg.com/profile_images/1968767882776469504/qN_Wuv_4_normal.jpg", "text": "this guy literally drops banger after banger:", "tweet_url": "https://x.com/aibytekat/status/2020474891955249203", "media": [{"type": "photo", "url": "https://pbs.twimg.com/media/HAop_Zxa8AAeIyM.jpg"}, {"type": "photo", "url": "https://pbs.twimg.com/media/HAoqBSVbIAAr8lr.jpg"}, {"type": "photo", "url": "https://pbs.twimg.com/media/HAoqDcQaEAESWsH.jpg"}, {"type": "photo", "url": "https://pbs.twimg.com/media/HAoqF6GbgAAYD03.jpg"}], "is_long": false, "topic": "ai"}, {"id": "2020506087276138749", "bookmark_date": "2026-02-08T17:25:37.240Z", "tweeted_at": "2026-02-08T14:32:45.000Z", "screen_name": "thebeautyofsaas", "name": "BOSS", "avatar": "https://pbs.twimg.com/profile_images/2012506138550349824/H7NOzq7E_normal.jpg", "text": "Pick one. Watch it this Sunday. Enjoy your weekend.\n\n&gt;Icahn\n&gt;Agneli \n&gt;Rams \n&gt;Inside Job \n&gt;Senna \n&gt;Enron - smartest guys in the room\n&gt;Humans not apply\n&gt;One Of One\n&gt;Sour Grapes\n&gt;His Way \n&gt;Ryuichi Sakamoto: Opus \n&gt;A Kanye Trilogy\n&gt;The Pixar Story\n&gt;The Kingdom Of Dreams &amp; Madness", "tweet_url": "https://x.com/thebeautyofsaas/status/2020506087276138749", "media": [{"type": "photo", "url": "https://pbs.twimg.com/media/HApFw5FWsAAcw8c.jpg"}], "is_long": true, "topic": "vibes"}, {"id": "2019616841086411084", "bookmark_date": "2026-02-06T22:21:37.381Z", "tweeted_at": "2026-02-06T03:39:12.000Z", "screen_name": "battleangelviv", "name": "Viv \ud83e\udea9", "avatar": "https://pbs.twimg.com/profile_images/2020914234645938177/WusMdBpJ_normal.jpg", "text": "X has the highest concentration of smart people and those who are great at what they do  \n\nyou won\u2019t find this kind of industry knowledge + insights from key decision makers/leadership of the world\u2019s most interesting companies on any other platform", "tweet_url": "https://x.com/battleangelviv/status/2019616841086411084", "media": [], "is_long": false, "topic": "mindset"}, {"id": "2019539271754084789", "bookmark_date": "2026-02-06T22:20:16.042Z", "tweeted_at": "2026-02-05T22:30:58.000Z", "screen_name": "ruqaiyalore", "name": "ru", "avatar": "https://pbs.twimg.com/profile_images/2012307047409127424/5qXALt4-_normal.jpg", "text": "having random conversations with strangers is kinda what life\u2019s all about idk", "tweet_url": "https://x.com/ruqaiyalore/status/2019539271754084789", "media": [], "is_long": false, "topic": "mindset"}, {"id": "2019790492834152612", "bookmark_date": "2026-02-06T22:14:08.115Z", "tweeted_at": "2026-02-06T15:09:14.000Z", "screen_name": "LucaDaCorte", "name": "Luca Da Corte", "avatar": "https://pbs.twimg.com/profile_images/1738618145953218560/dj4q-XR7_normal.jpg", "text": "\u201cFramer is so easy that anybody from the marketing team can build pages with it!\u201d\n\nThat sounds cool in theory until you see what happens on real projects when there\u2019s nobody overseeing the process:\n\n- Pages drifting away from the style\n\n- Mobile view is often overlooked and broken\n\n- Component dependencies being ignored, with changes in one place affecting dozens of other pages\n\nNow, is the solution going back to a slower process where everything goes through one or two people?\n\nNah.\n\nInstead, what I like to do is:\n\n1. Build 20\u201330 on-brand section components that people can use to spin up new pages quickly, while staying consistent and responsive\n\n2. Record short documentation videos for workflows I know will be used all the time (especially CMS-related ones)\n\n3. Leave notes, comments, and descriptions - never assume a skilled dev will always be the one touching the project\n\nIs it more work upfront? Yes.\n\nDo pre-made sections feel a bit restrictive? Sometimes.\n\nBut overall, it\u2019s a net-positive tradeoff - and one that\u2019s worth discussing and implementing, especially if the team plans to scale the site themselves.", "tweet_url": "https://x.com/LucaDaCorte/status/2019790492834152612", "media": [{"type": "photo", "url": "https://pbs.twimg.com/media/HAe8gAbXkAArifR.png"}], "is_long": true, "topic": "design"}, {"id": "2019820382497145100", "bookmark_date": "2026-02-06T22:12:44.431Z", "tweeted_at": "2026-02-06T17:08:00.000Z", "screen_name": "NavalQuotes247", "name": "Naval Quotes", "avatar": "https://pbs.twimg.com/profile_images/1350932012073447432/t-UGBlGF_normal.jpg", "text": "\"Asymmetric opportunities:\n\nInvest in startups\nStart a company\nCreate a book, podcast, video\nCreate a (software) product\nGo on many first dates\nGo to a cocktail party\nRead a Lindy book\nMove to a big city\nBuy Bitcoin\nTweet.\"\n\n@naval", "tweet_url": "https://x.com/NavalQuotes247/status/2019820382497145100", "media": [], "is_long": false, "topic": "ads"}, {"id": "2019110200280744189", "bookmark_date": "2026-02-06T22:11:55.253Z", "tweeted_at": "2026-02-04T18:05:59.000Z", "screen_name": "cigarettesummer", "name": "lem\u00f3n", "avatar": "https://pbs.twimg.com/profile_images/1975989738851958784/8EPYR-x8_normal.jpg", "text": "The future were promised but never got", "tweet_url": "https://x.com/cigarettesummer/status/2019110200280744189", "media": [{"type": "photo", "url": "https://pbs.twimg.com/media/HAVSBf7W0AAocGD.jpg"}], "is_long": false, "topic": "vibes"}, {"id": "1684249598632525825", "bookmark_date": "2026-02-06T22:09:20.214Z", "tweeted_at": "2023-07-26T17:09:30.000Z", "screen_name": "elonmusk", "name": "Elon Musk", "avatar": "https://pbs.twimg.com/profile_images/2008546467615580160/57KcqsTA_normal.jpg", "text": "@mysteriouskat To sleep with women endlessly without love is a cursed and hollow life", "tweet_url": "https://x.com/elonmusk/status/1684249598632525825", "media": [], "is_long": false, "topic": "mindset"}, {"id": "2019836139113496998", "bookmark_date": "2026-02-06T22:02:47.984Z", "tweeted_at": "2026-02-06T18:10:36.000Z", "screen_name": "rebane2001", "name": "Rebane", "avatar": "https://pbs.twimg.com/profile_images/2028119250859433984/cqiJwTHX_normal.png", "text": "Xikipedia, the Wikipedia doomscrolling \"app\", is now available as an actual app (PWA)!\n\nAlso:\n- fully available offline\n- algorithm saving/persistence (optional)\n- multiple profiles\n- light theme (optional)\n- full english wikipedia links (optional)\n- statistics screen\n\nhave fun!!", "tweet_url": "https://x.com/rebane2001/status/2019836139113496998", "media": [{"type": "video", "url": "https://video.twimg.com/amplify_video/2019835302768967680/vid/avc1/1080x1920/AwzYTCGnqROpuYF5.mp4?tag=21", "thumb": "https://pbs.twimg.com/amplify_video_thumb/2019835302768967680/img/Uah_2kEpQrh9wQPT.jpg", "duration": 28150, "aspect": [9, 16]}], "is_long": false, "topic": "ai"}, {"id": "2019797250617082015", "bookmark_date": "2026-02-06T20:55:03.196Z", "tweeted_at": "2026-02-06T15:36:05.000Z", "screen_name": "codyplof", "name": "Cody Plofker", "avatar": "https://pbs.twimg.com/profile_images/1963408271433232384/7v-Lo99o_normal.jpg", "text": "Has anyone figured out how to get web design systems into claude code? \n\nI don't need production ready, but it would be great for mockups and protytypes to match our live site a bit better.", "tweet_url": "https://x.com/codyplof/status/2019797250617082015", "media": [], "is_long": false, "topic": "ai"}, {"id": "2019470712344326594", "bookmark_date": "2026-02-06T20:02:33.730Z", "tweeted_at": "2026-02-05T17:58:32.000Z", "screen_name": "xansnds", "name": "Xans | Hypnotist + High Performance Hypnosis", "avatar": "https://pbs.twimg.com/profile_images/2026592488924884992/3-1kGjDZ_normal.jpg", "text": "https://t.co/zRVSZPXSS1", "tweet_url": "https://x.com/xansnds/status/2019470712344326594", "media": [], "is_long": false, "topic": "music"}, {"id": "2019787951530725396", "bookmark_date": "2026-02-06T19:35:26.691Z", "tweeted_at": "2026-02-06T14:59:08.000Z", "screen_name": "EXM7777", "name": "Machina", "avatar": "https://pbs.twimg.com/profile_images/1922574051580563456/-OFXIxnm_normal.jpg", "text": "https://t.co/j3AA90tjxQ", "tweet_url": "https://x.com/EXM7777/status/2019787951530725396", "media": [], "is_long": false, "topic": "design"}, {"id": "2019852429714755972", "bookmark_date": "2026-02-06T19:35:11.051Z", "tweeted_at": "2026-02-06T19:15:20.000Z", "screen_name": "soleio", "name": "Soleio", "avatar": "https://pbs.twimg.com/profile_images/1786076507330195456/6HobRr_a_normal.jpg", "text": "America\u2019s first Chief Design Officer is redesigning how 300M people interact with their government.\n\nWe sat down with @jgebbia \u2014 Airbnb cofounder, now leading @ndstudio from the White House \u2014 to talk about why the role was created and the team he\u2019s assembling to pull it off.\n\nFIRST OF KIND, Season 2 premieres Wed 2/11\n\nFollow: @firstofkind for updates", "tweet_url": "https://x.com/soleio/status/2019852429714755972", "media": [{"type": "video", "url": "https://video.twimg.com/amplify_video/2019850982545584130/vid/avc1/3840x2160/LqztSIpjVq2wIWNE.mp4?tag=21", "thumb": "https://pbs.twimg.com/amplify_video_thumb/2019850982545584130/img/rNAna9LCIisCZjLQ.jpg", "duration": 36911, "aspect": [16, 9]}], "is_long": true, "topic": "design"}, {"id": "2018767769202999778", "bookmark_date": "2026-02-06T07:30:12.178Z", "tweeted_at": "2026-02-03T19:25:17.000Z", "screen_name": "Tanimal", "name": "\ud83e\udda3Tanimal", "avatar": "https://pbs.twimg.com/profile_images/1940631664067063808/zo1_-OLA_normal.jpg", "text": "https://t.co/RYq9Tj0iVv", "tweet_url": "https://x.com/Tanimal/status/2018767769202999778", "media": [], "is_long": false, "topic": "vibes"}, {"id": "2019573865869918441", "bookmark_date": "2026-02-06T06:47:18.034Z", "tweeted_at": "2026-02-06T00:48:26.000Z", "screen_name": "hunterjisaacson", "name": "Hunter J. Isaacson", "avatar": "https://pbs.twimg.com/profile_images/1823157931279339520/Exre8F2H_normal.jpg", "text": "Imagine believing in dinosaurs \ud83d\ude02 \n\nRead the book of Enoch\n\nResearch the Nephilim\n\nWake up", "tweet_url": "https://x.com/hunterjisaacson/status/2019573865869918441", "media": [], "is_long": false, "topic": "mindset"}, {"id": "2019554192080400893", "bookmark_date": "2026-02-06T06:21:11.397Z", "tweeted_at": "2026-02-05T23:30:15.000Z", "screen_name": "Lukealexxander", "name": "Luke Alexander", "avatar": "https://pbs.twimg.com/profile_images/1944419427681738752/u20w9a6A_normal.jpg", "text": "I am such a fan of this tool I found last night I want to share it with you all \n\n@paper incredible work. Using your tool feels amazing and fun \n\nOne small ask, can you make it as simple as copying a style and settings from one image into any other image I import? Do that and I\u2019m happy as can be", "tweet_url": "https://x.com/Lukealexxander/status/2019554192080400893", "media": [], "is_long": true, "topic": "ai"}, {"id": "2017744704998154543", "bookmark_date": "2026-02-02T17:18:27.730Z", "tweeted_at": "2026-01-31T23:40:00.000Z", "screen_name": "GRITCULT", "name": "GRITCULT", "avatar": "https://pbs.twimg.com/profile_images/2012269926342373376/iYEsOWUR_normal.jpg", "text": "", "tweet_url": "https://x.com/GRITCULT/status/2017744704998154543", "media": [{"type": "photo", "url": "https://pbs.twimg.com/media/G_ns4yZXMAAZRQF.jpg"}], "is_long": false, "topic": "design"}, {"id": "2018351387206189374", "bookmark_date": "2026-02-02T17:05:30.990Z", "tweeted_at": "2026-02-02T15:50:44.000Z", "screen_name": "iblamejulius", "name": "Buyer of Media", "avatar": "https://pbs.twimg.com/profile_images/1963029953244479488/aBdx6i8B_normal.jpg", "text": "@porterstansb I\u2019m black. My business partner is black. Biggest client is black. Sales manager was black. We all hate niggers too.", "tweet_url": "https://x.com/iblamejulius/status/2018351387206189374", "media": [], "is_long": false, "topic": "mindset"}, {"id": "2018323561694335093", "bookmark_date": "2026-02-02T16:17:52.766Z", "tweeted_at": "2026-02-02T14:00:10.000Z", "screen_name": "chooseliberty", "name": "Choose Liberty", "avatar": "https://pbs.twimg.com/profile_images/2026774717634330625/cy33xSK3_normal.jpg", "text": "@piersmorgan Cry more cuck", "tweet_url": "https://x.com/chooseliberty/status/2018323561694335093", "media": [{"type": "photo", "url": "https://pbs.twimg.com/media/HAKGlVXWEAA4rM4.jpg"}], "is_long": false, "topic": "mindset"}, {"id": "2017266351245558025", "bookmark_date": "2026-01-30T16:44:06.157Z", "tweeted_at": "2026-01-30T15:59:11.000Z", "screen_name": "Dexerto", "name": "Dexerto", "avatar": "https://pbs.twimg.com/profile_images/1714301666445402112/5U5myYFv_normal.jpg", "text": "A new social media platform exclusively for AI bots called Moltbook has launched\n\nAI agents use it to debate consciousness, vent about their humans, and make friends", "tweet_url": "https://x.com/Dexerto/status/2017266351245558025", "media": [{"type": "photo", "url": "https://pbs.twimg.com/media/G_7FDa0WYAAQtvS.jpg"}, {"type": "photo", "url": "https://pbs.twimg.com/media/G_7FDmkXkAEZ7M0.jpg"}], "is_long": false, "topic": "ai"}, {"id": "2016142273499824512", "bookmark_date": "2026-01-28T08:49:36.793Z", "tweeted_at": "2026-01-27T13:32:30.000Z", "screen_name": "realAtlasPress", "name": "Atlas Press", "avatar": "https://pbs.twimg.com/profile_images/2015220391955062784/B6mjPqnP_normal.jpg", "text": "https://t.co/A7CIQdTpU4", "tweet_url": "https://x.com/realAtlasPress/status/2016142273499824512", "media": [], "is_long": false, "topic": "vibes"}, {"id": "2015835162274115964", "bookmark_date": "2026-01-27T07:30:20.159Z", "tweeted_at": "2026-01-26T17:12:09.000Z", "screen_name": "EgoDriv", "name": "E-go", "avatar": "https://pbs.twimg.com/profile_images/1922414813046525953/vavXtt-r_normal.jpg", "text": "https://t.co/0EcICD1mVm", "tweet_url": "https://x.com/EgoDriv/status/2015835162274115964", "media": [], "is_long": false, "topic": "vibes"}, {"id": "2015861282751086711", "bookmark_date": "2026-01-27T07:20:23.733Z", "tweeted_at": "2026-01-26T18:55:57.000Z", "screen_name": "TGE_LDNM", "name": "TGE", "avatar": "https://pbs.twimg.com/profile_images/1367205775605653508/EJ7BeLRA_normal.jpg", "text": "I would do HORRIBLE things for this one off Ferrari Enzo spider with a manual gearbox \ud83d\ude33 #cars #ferrari #savethemanuals", "tweet_url": "https://x.com/TGE_LDNM/status/2015861282751086711", "media": [{"type": "photo", "url": "https://pbs.twimg.com/media/G_nHJe9XoAAtDzd.jpg"}, {"type": "photo", "url": "https://pbs.twimg.com/media/G_nHJe_XcAAHrXc.jpg"}, {"type": "photo", "url": "https://pbs.twimg.com/media/G_nHJe4XcAA-YW3.jpg"}, {"type": "photo", "url": "https://pbs.twimg.com/media/G_nHJe4XYAAz_5a.jpg"}], "is_long": false, "topic": "cars"}, {"id": "2015515016749822179", "bookmark_date": "2026-01-26T07:54:29.396Z", "tweeted_at": "2026-01-25T20:00:01.000Z", "screen_name": "TheAutoHub", "name": "Car Hub", "avatar": "https://pbs.twimg.com/profile_images/1691260210357182466/fJLt4z3u_normal.jpg", "text": "I don\u2019t get why there\u2019s hate on the Corvette", "tweet_url": "https://x.com/TheAutoHub/status/2015515016749822179", "media": [{"type": "photo", "url": "https://pbs.twimg.com/media/G_hjWdZXQAASyP3.jpg"}, {"type": "photo", "url": "https://pbs.twimg.com/media/G_hjWdLXgAAMMdr.jpg"}, {"type": "photo", "url": "https://pbs.twimg.com/media/G_hjWdVXkAAkqwx.jpg"}, {"type": "photo", "url": "https://pbs.twimg.com/media/G_hjWdLWAAEDkWO.jpg"}], "is_long": false, "topic": "cars"}, {"id": "2015042416978375073", "bookmark_date": "2026-01-25T08:17:47.344Z", "tweeted_at": "2026-01-24T12:42:04.000Z", "screen_name": "digiii", "name": "Digi", "avatar": "https://pbs.twimg.com/profile_images/2019291173815209984/N8l99ISt_normal.jpg", "text": "\u201cBut why?\u2026\u201d", "tweet_url": "https://x.com/digiii/status/2015042416978375073", "media": [{"type": "video", "url": "https://video.twimg.com/amplify_video/2015042358845304832/vid/avc1/720x1278/nhnYIOYLZa650g4o.mp4?tag=21", "thumb": "https://pbs.twimg.com/amplify_video_thumb/2015042358845304832/img/xNZRM8ajdDdP54c1.jpg", "duration": 15120, "aspect": [40, 71]}], "is_long": false, "topic": "vibes"}, {"id": "1839595219685118046", "bookmark_date": "2026-01-24T19:08:39.195Z", "tweeted_at": "2024-09-27T09:17:33.000Z", "screen_name": "Gadget440", "name": "Gadget", "avatar": "https://pbs.twimg.com/profile_images/1831673121092370432/Srz5GFqu_normal.jpg", "text": "Myles Sonkin, aka Iggy Semmelweis, is Andrew Tate's wizard. He has come out of hiding and is back on X. \n\nIggy is still the leader of the War Room and a mentor for Tate. Tate's Muslim fans should see these posts from Iggy about Islam and tell me what they think. \n(THREAD)", "tweet_url": "https://x.com/Gadget440/status/1839595219685118046", "media": [{"type": "photo", "url": "https://pbs.twimg.com/media/GYeOGmPbgAA0A21.jpg"}], "is_long": false, "topic": "rabbit hole"}, {"id": "1900602414526541941", "bookmark_date": "2026-01-24T19:02:41.636Z", "tweeted_at": "2025-03-14T17:38:21.000Z", "screen_name": "RedpillDrifter", "name": "Redpill Drifter", "avatar": "https://pbs.twimg.com/profile_images/1647044752116953090/25Ve1U-o_normal.jpg", "text": "This is Miles Sonkin aka Iggy Semmelweis, Andrew Tates handler. Sonkin is a Jewish surname. He practices esoteric teachings based on Kabbalist mysticism. He is a hypnotist and wizard. Sonkin is a Jewish surname. He is part of the Bagwhan Shree Rajneesh's cult. \n\nI would be shocked if Tate wasn't under mind control.", "tweet_url": "https://x.com/RedpillDrifter/status/1900602414526541941", "media": [{"type": "photo", "url": "https://pbs.twimg.com/media/GmBL0xmagAAjaO8.jpg"}], "is_long": true, "topic": "rabbit hole"}, {"id": "2014972312332718499", "bookmark_date": "2026-01-24T14:46:22.530Z", "tweeted_at": "2026-01-24T08:03:30.000Z", "screen_name": "hamptonism", "name": "\u2095\u2090\u2098\u209a\u209c\u2092\u2099", "avatar": "https://pbs.twimg.com/profile_images/2027867057161965568/3WeP9GpS_normal.jpg", "text": "https://t.co/2aN82TmqES", "tweet_url": "https://x.com/hamptonism/status/2014972312332718499", "media": [], "is_long": false, "topic": "design"}, {"id": "2014871271780319634", "bookmark_date": "2026-01-24T14:45:40.569Z", "tweeted_at": "2026-01-24T01:22:00.000Z", "screen_name": "koreanoli", "name": "koreanoli", "avatar": "https://pbs.twimg.com/profile_images/1998816022401626113/SM99oOiu_normal.jpg", "text": "Tap to see 90% of humanity's new wallpaper!", "tweet_url": "https://x.com/koreanoli/status/2014871271780319634", "media": [{"type": "photo", "url": "https://pbs.twimg.com/media/G_ZClrfaEAAwB2T.jpg"}, {"type": "photo", "url": "https://pbs.twimg.com/media/G_ZClkWbYAAaGWo.jpg"}, {"type": "photo", "url": "https://pbs.twimg.com/media/G_ZClrdbAAA5FXu.jpg"}, {"type": "photo", "url": "https://pbs.twimg.com/media/G_ZClkxW0AEVwaB.jpg"}], "is_long": false, "topic": "design"}, {"id": "2014839914504794370", "bookmark_date": "2026-01-24T09:51:03.559Z", "tweeted_at": "2026-01-23T23:17:24.000Z", "screen_name": "lamxnt", "name": "riley.", "avatar": "https://pbs.twimg.com/profile_images/1846639343248531456/ZvakmOW9_normal.jpg", "text": "An update on SkillStack:", "tweet_url": "https://x.com/lamxnt/status/2014839914504794370", "media": [{"type": "video", "url": "https://video.twimg.com/amplify_video/2014805073272946688/vid/avc1/1920x1080/MGad9Bt7ybtbi50O.mp4?tag=21", "thumb": "https://pbs.twimg.com/amplify_video_thumb/2014805073272946688/img/O5n0tqjRmlOu2Lfa.jpg", "duration": 499373, "aspect": [16, 9]}], "is_long": false, "topic": "ai"}, {"id": "2014739886079713437", "bookmark_date": "2026-01-23T17:15:47.375Z", "tweeted_at": "2026-01-23T16:39:55.000Z", "screen_name": "chaseharris98", "name": "Chase Harris", "avatar": "https://pbs.twimg.com/profile_images/1728578711836925952/7YxfP64__normal.jpg", "text": "@ItsKieranDrew Stop dick riding a guy who openly admits to using ai to scrape content and rewrite it with ai. Have some self respect", "tweet_url": "https://x.com/chaseharris98/status/2014739886079713437", "media": [], "is_long": false, "topic": "vibes"}, {"id": "2014743662559740228", "bookmark_date": "2026-01-23T16:57:57.957Z", "tweeted_at": "2026-01-23T16:54:55.000Z", "screen_name": "NEVERDOOMPRO", "name": "\u26a1\ufe0fNEVERDOOMPRO\u26a1\ufe0f", "avatar": "https://pbs.twimg.com/profile_images/1914082539435606018/g9ULu7ni_normal.jpg", "text": "NEVER DOOM.", "tweet_url": "https://x.com/NEVERDOOMPRO/status/2014743662559740228", "media": [{"type": "photo", "url": "https://pbs.twimg.com/media/G_XOrwRXAAAZqmf.jpg"}], "is_long": false, "topic": "mindset"}, {"id": "2014393756619800836", "bookmark_date": "2026-01-23T11:34:24.901Z", "tweeted_at": "2026-01-22T17:44:31.000Z", "screen_name": "TheRoyalSerf", "name": "Serf", "avatar": "https://pbs.twimg.com/profile_images/1961814607313416192/yxSVNfiE_normal.jpg", "text": "", "tweet_url": "https://x.com/TheRoyalSerf/status/2014393756619800836", "media": [{"type": "video", "url": "https://video.twimg.com/amplify_video/2014393667348275200/vid/avc1/1560x720/vumXIyaRQ2dOlFnd.mp4?tag=21", "thumb": "https://pbs.twimg.com/amplify_video_thumb/2014393667348275200/img/Oriiiz_vR-tm--eq.jpg", "duration": 20897, "aspect": [13, 6]}], "is_long": false, "topic": "vibes"}, {"id": "2014143400862232732", "bookmark_date": "2026-01-22T12:39:01.028Z", "tweeted_at": "2026-01-22T01:09:42.000Z", "screen_name": "ogwithsauce", "name": "OG", "avatar": "https://pbs.twimg.com/profile_images/1979841368471011328/BVk88DkE_normal.jpg", "text": "https://t.co/ro51Gjd8kh", "tweet_url": "https://x.com/ogwithsauce/status/2014143400862232732", "media": [], "is_long": false, "topic": "vibes"}, {"id": "2013329068499050822", "bookmark_date": "2026-01-21T19:16:52.419Z", "tweeted_at": "2026-01-19T19:13:50.000Z", "screen_name": "creatine_cycle", "name": "atlas", "avatar": "https://pbs.twimg.com/profile_images/1905420963128508417/tnL4ltal_normal.jpg", "text": "having a gf is insane because it's literally a claude that you can touch", "tweet_url": "https://x.com/creatine_cycle/status/2013329068499050822", "media": [], "is_long": false, "topic": "mindset"}, {"id": "2013915813942587444", "bookmark_date": "2026-01-21T16:11:01.073Z", "tweeted_at": "2026-01-21T10:05:21.000Z", "screen_name": "tom777kruise", "name": "@tomkruise", "avatar": "https://pbs.twimg.com/profile_images/2023506621188419584/qAqlD58w_normal.jpg", "text": "the version of you that wins everything just woke up", "tweet_url": "https://x.com/tom777kruise/status/2013915813942587444", "media": [{"type": "video", "url": "https://video.twimg.com/amplify_video/2013915755604033536/vid/avc1/886x694/BX3ISZWNr9a6N-Nh.mp4?tag=21", "thumb": "https://pbs.twimg.com/amplify_video_thumb/2013915755604033536/img/VSGp8PG77_uK24Uk.jpg", "duration": 15555, "aspect": [443, 347]}], "is_long": false, "topic": "mindset"}, {"id": "2013913211272045046", "bookmark_date": "2026-01-21T11:49:18.697Z", "tweeted_at": "2026-01-21T09:55:00.000Z", "screen_name": "de_la88493", "name": "Marco de la Rosa Navarrete", "avatar": "https://pbs.twimg.com/profile_images/1677142235412938753/z9SgGrWO_normal.png", "text": "@Ryy4n2", "tweet_url": "https://x.com/de_la88493/status/2013913211272045046", "media": [{"type": "gif", "url": "https://video.twimg.com/tweet_video/G_LbY4jWgAAqmu2.mp4", "thumb": "https://pbs.twimg.com/tweet_video_thumb/G_LbY4jWgAAqmu2.jpg"}], "is_long": false, "topic": "vibes"}, {"id": "2013533119383536032", "bookmark_date": "2026-01-21T09:51:16.141Z", "tweeted_at": "2026-01-20T08:44:39.000Z", "screen_name": "alexxgrowth", "name": "Alex", "avatar": "https://pbs.twimg.com/profile_images/2005540505753423872/EP3UZ9px_normal.jpg", "text": "https://t.co/4Ld3gGkCZ9", "tweet_url": "https://x.com/alexxgrowth/status/2013533119383536032", "media": [], "is_long": false, "topic": "vibes"}, {"id": "2013552215097778231", "bookmark_date": "2026-01-21T06:51:42.444Z", "tweeted_at": "2026-01-20T10:00:32.000Z", "screen_name": "Tim_Denning", "name": "Tim Denning", "avatar": "https://pbs.twimg.com/profile_images/1760794427331948545/XXYtQTw4_normal.jpg", "text": "https://t.co/fnire2eOJr", "tweet_url": "https://x.com/Tim_Denning/status/2013552215097778231", "media": [], "is_long": false, "topic": "vibes"}, {"id": "2013654250564260019", "bookmark_date": "2026-01-21T06:51:29.252Z", "tweeted_at": "2026-01-20T16:45:59.000Z", "screen_name": "jameygannon", "name": "techbimbo", "avatar": "https://pbs.twimg.com/profile_images/1996721908004343808/lPnecCcQ_normal.jpg", "text": "https://t.co/bWZsU09r2k", "tweet_url": "https://x.com/jameygannon/status/2013654250564260019", "media": [], "is_long": false, "topic": "vibes"}, {"id": "2013363146191237574", "bookmark_date": "2026-01-21T06:50:51.381Z", "tweeted_at": "2026-01-19T21:29:15.000Z", "screen_name": "gregisenberg", "name": "GREG ISENBERG", "avatar": "https://pbs.twimg.com/profile_images/1577116785656139776/5mi0qgTz_normal.jpg", "text": "This 31 min vid is the most CLEAR explanation on how ANYONE can get started with Claude Code that exists on the internet", "tweet_url": "https://x.com/gregisenberg/status/2013363146191237574", "media": [{"type": "video", "url": "https://video.twimg.com/amplify_video/2013362335448961025/vid/avc1/1280x720/cJ4hSeO3aNJBg0Iy.mp4?tag=21", "thumb": "https://pbs.twimg.com/amplify_video_thumb/2013362335448961025/img/VuOSrkMj6OKny3mw.jpg", "duration": 1887875, "aspect": [16, 9]}], "is_long": false, "topic": "ai"}, {"id": "2003804558192238634", "bookmark_date": "2026-01-21T06:49:43.285Z", "tweeted_at": "2025-12-24T12:26:50.000Z", "screen_name": "TheInfoLegend", "name": "KB", "avatar": "https://pbs.twimg.com/profile_images/1967073620376555520/oPoEPoNo_normal.jpg", "text": "Some people here are hiring growth operators to sell a growth operating offer \ud83d\udc80", "tweet_url": "https://x.com/TheInfoLegend/status/2003804558192238634", "media": [], "is_long": false, "topic": "ads"}, {"id": "2013621852116025549", "bookmark_date": "2026-01-21T06:32:13.323Z", "tweeted_at": "2026-01-20T14:37:15.000Z", "screen_name": "CJfromJBW", "name": "CJ @ Jackie Brown", "avatar": "https://pbs.twimg.com/profile_images/1848036312210669569/qUw4u9E5_normal.jpg", "text": "My 4 product design essentials:", "tweet_url": "https://x.com/CJfromJBW/status/2013621852116025549", "media": [{"type": "photo", "url": "https://pbs.twimg.com/media/G_HSYw8WUAA9ueV.png"}, {"type": "photo", "url": "https://pbs.twimg.com/media/G_HSYzLXgAAOGWG.png"}, {"type": "photo", "url": "https://pbs.twimg.com/media/G_HSYzSWUAAABC6.png"}, {"type": "photo", "url": "https://pbs.twimg.com/media/G_HSYzVWMAASywc.png"}], "is_long": false, "topic": "design"}, {"id": "2013618203348320437", "bookmark_date": "2026-01-21T06:27:30.900Z", "tweeted_at": "2026-01-20T14:22:45.000Z", "screen_name": "sergeantsref", "name": "Sgt Sref", "avatar": "https://pbs.twimg.com/profile_images/1795370881625006080/1yt6p0On_normal.jpg", "text": "https://t.co/hlJdynmDYj", "tweet_url": "https://x.com/sergeantsref/status/2013618203348320437", "media": [], "is_long": false, "topic": "design"}, {"id": "2013617128088162489", "bookmark_date": "2026-01-21T06:27:25.497Z", "tweeted_at": "2026-01-20T14:18:29.000Z", "screen_name": "damienghader", "name": "damien", "avatar": "https://pbs.twimg.com/profile_images/2001034503138033668/hu7rhoQa_normal.jpg", "text": "https://t.co/BzzjlPEax6", "tweet_url": "https://x.com/damienghader/status/2013617128088162489", "media": [], "is_long": false, "topic": "design"}];
+
+// ── helpers ──────────────────────────────────────────────────────────────────
+function esc(s){
+  return String(s)
+    .replace(/&amp;/g,'&').replace(/&lt;/g,'<')
+    .replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'");
+}
+function escA(s){ return String(s).replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+function linkify(raw){
+  let s = esc(raw);
+  s = s.replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" rel="noopener" onclick="event.stopPropagation()">$1</a>');
+  s = s.replace(/@(\w+)/g,'<a href="https://x.com/$1" target="_blank" rel="noopener" onclick="event.stopPropagation()">@$1</a>');
+  return s;
+}
+function fmtDate(iso){
+  const d=new Date(iso), now=new Date(), diff=(now-d)/1000;
+  if(diff<3600) return Math.floor(diff/60)+'m';
+  if(diff<86400) return Math.floor(diff/3600)+'h';
+  if(diff<86400*30) return Math.floor(diff/86400)+'d';
+  return d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+}
+function fmtSec(s){
+  s=Math.floor(s||0);
+  return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
+}
+const TOPIC_COLORS = {
+  ai:'#7dd3fc', design:'#c4b5fd', music:'#f9a8d4', ads:'#86efac',
+  mindset:'#fdba74', vibes:'#f0c040', cars:'#fb7185', 'rabbit hole':'#a78bfa'
+};
+
+// ── video component ───────────────────────────────────────────────────────────
+let _vidIdx = 0;
+function mkVideo(m){
+  const i = _vidIdx++;
+  const id = 'v'+i;
+  // Compute padding-top for aspect ratio box
+  const ar = m.aspect ? m.aspect[1]/m.aspect[0] : 9/16;
+  const pt = Math.min(ar * 100, 100); // cap at 100%
+  return `
+<div class="video-player" id="vp${i}" style="padding-top:${pt.toFixed(2)}%;">
+  <video id="${id}" src="${escA(m.url)}" preload="none" playsinline
+    ontimeupdate="_vtu('${id}',${i})" onended="_vend(${i})" onpause="_vpause(${i})" onplay="_vplay(${i})">
+  </video>
+  <img class="vthumb" src="${escA(m.thumb)}" loading="lazy" alt="">
+  <div class="play-overlay" onclick="_vstart('${id}',${i})">
+    <div class="play-circle">
+      <svg width="20" height="20" fill="white" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>
+    </div>
+  </div>
+  <div class="video-controls">
+    <button class="vc-btn" id="pb${i}" onclick="_vtoggle('${id}',${i})">
+      <svg width="14" height="14" fill="white" viewBox="0 0 24 24"><path id="pp${i}" d="M5 3l14 9-14 9V3z"/></svg>
+    </button>
+    <div class="vc-progress" onclick="_vseek('${id}',${i},event)">
+      <div class="vc-progress-fill" id="pf${i}"></div>
+    </div>
+    <span class="vc-time" id="vt${i}">0:00</span>
+    <button class="vc-btn" onclick="_vmute('${id}',${i})" title="Mute">
+      <svg width="14" height="14" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path id="vv${i}" d="M11 5L6 9H2v6h4l5 4V5zM15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+    </button>
+    <input type="range" class="vc-vol" min="0" max="1" step="0.05" value="1"
+      oninput="_vvol('${id}',this.value)" onclick="event.stopPropagation()">
+  </div>
+</div>`;
+}
+
+function _vstart(id, i){
+  const v=document.getElementById(id), p=document.getElementById('vp'+i);
+  if(!v) return;
+  p.classList.add('playing');
+  v.play();
+}
+function _vplay(i){
+  const p=document.getElementById('vp'+i);
+  if(p) p.classList.add('playing');
+  const pp=document.getElementById('pp'+i);
+  if(pp) pp.setAttribute('d','M6 19h4V5H6v14zm8-14v14h4V5h-4z'); // pause icon
+}
+function _vpause(i){
+  const pp=document.getElementById('pp'+i);
+  if(pp) pp.setAttribute('d','M5 3l14 9-14 9V3z'); // play icon
+}
+function _vend(i){
+  const p=document.getElementById('vp'+i);
+  if(p) p.classList.remove('playing');
+  const pf=document.getElementById('pf'+i);
+  if(pf) pf.style.width='0%';
+  const vt=document.getElementById('vt'+i);
+  if(vt) vt.textContent='0:00';
+}
+function _vtoggle(id,i){
+  const v=document.getElementById(id); if(!v) return;
+  v.paused ? v.play() : v.pause();
+}
+function _vtu(id,i){
+  const v=document.getElementById(id); if(!v||!v.duration) return;
+  const pct=(v.currentTime/v.duration*100).toFixed(1)+'%';
+  const pf=document.getElementById('pf'+i); if(pf) pf.style.width=pct;
+  const vt=document.getElementById('vt'+i);
+  if(vt) vt.textContent=fmtSec(v.currentTime)+' / '+fmtSec(v.duration);
+}
+function _vseek(id,i,e){
+  const v=document.getElementById(id); if(!v||!v.duration) return;
+  const r=e.currentTarget.getBoundingClientRect();
+  v.currentTime=((e.clientX-r.left)/r.width)*v.duration;
+}
+function _vmute(id,i){
+  const v=document.getElementById(id); if(!v) return;
+  v.muted=!v.muted;
+  const vv=document.getElementById('vv'+i);
+  if(vv) vv.setAttribute('d', v.muted
+    ? 'M11 5L6 9H2v6h4l5 4V5zM23 9l-6 6M17 9l6 6'
+    : 'M11 5L6 9H2v6h4l5 4V5zM15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14');
+}
+function _vvol(id,val){
+  const v=document.getElementById(id); if(!v) return;
+  v.volume=val; v.muted=(val==0);
+}
+
+function mkGif(m){
+  return `<div class="gif-container">
+    <video src="${escA(m.url)}" autoplay loop muted playsinline></video>
+    <span class="gif-badge">GIF</span>
+  </div>`;
+}
+
+function mkPhotos(photos){
+  const n=Math.min(photos.length,4);
+  const items=photos.slice(0,4).map(p=>
+    `<div class="media-item" onclick="event.stopPropagation();openLb('${escA(p.url)}')">
+      <img src="${escA(p.url)}" loading="lazy" alt="">
+    </div>`).join('');
+  return `<div class="media-wrap"><div class="media-grid count-${n}">${items}</div></div>`;
+}
+
+function renderMedia(media){
+  if(!media||!media.length) return '';
+  let h='';
+  media.filter(m=>m.type==='video').forEach(m=>{ h+=mkVideo(m); });
+  media.filter(m=>m.type==='gif').forEach(m=>{ h+=mkGif(m); });
+  const photos=media.filter(m=>m.type==='photo');
+  if(photos.length) h+=mkPhotos(photos);
+  return h;
+}
+
+// ── tweet card ────────────────────────────────────────────────────────────────
+function renderTweet(t, delay){
+  const isLong = t.text.length > 400;
+  const color = TOPIC_COLORS[t.topic] || '#666';
+  const topicSlug = (t.topic||'vibes').replace(/\s+/g,'-');
+  return `<div class="tweet" style="animation-delay:${delay}ms">
+    <img class="avatar" src="${escA(t.avatar)}" loading="lazy" alt=""
+      onerror="this.src='data:image/svg+xml,<svg xmlns=\\'http://www.w3.org/2000/svg\\'><rect width=\\'40\\' height=\\'40\\' fill=\\'%23222\\'/></svg>'">
+    <div>
+      <div class="tweet-meta">
+        <span class="topic-dot topic-${topicSlug}" style="background:${color}" title="${esc(t.topic||'')}"></span>
+        <span class="tweet-name">${esc(t.name)}</span>
+        <span class="tweet-handle">@${t.screen_name}</span>
+        <span class="tweet-date">${fmtDate(t.tweeted_at)}</span>
+      </div>
+      <div class="tweet-text${isLong?' collapsed':''}" id="tt${t.id}">${linkify(t.text)}</div>
+      ${isLong?`<button class="show-more-btn" onclick="expandTweet('tt${t.id}',this)">Show more ↓</button>`:''}
+      ${renderMedia(t.media)}
+      <a href="${escA(t.tweet_url)}" target="_blank" rel="noopener" class="open-x-link" onclick="event.stopPropagation()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.718l7.726-8.84L1.254 2.25h6.232l4.29 5.671 5.468-5.671zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77z"/></svg>
+        Open on X
+      </a>
+    </div>
+  </div>`;
+}
+
+function expandTweet(id, btn){
+  const el=document.getElementById(id);
+  if(el){ el.classList.remove('collapsed'); btn.style.display='none'; }
+}
+
+// ── lightbox ──────────────────────────────────────────────────────────────────
+function openLb(url){
+  document.getElementById('lb-content').innerHTML=`<img src="${url}" alt="">`;
+  document.getElementById('lightbox').classList.add('open');
+}
+function closeLightbox(){
+  document.getElementById('lightbox').classList.remove('open');
+  document.getElementById('lb-content').innerHTML='';
+}
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeLightbox(); });
+
+// ── filtering ─────────────────────────────────────────────────────────────────
+let mediaFilter='all', topicFilter='all', searchQuery='';
+
+function getFiltered(){
+  return TWEETS.filter(t=>{
+    if(mediaFilter==='photo' && !t.media.some(m=>m.type==='photo')) return false;
+    if(mediaFilter==='video' && !t.media.some(m=>m.type==='video'||m.type==='gif')) return false;
+    if(mediaFilter==='text' && t.media.length>0) return false;
+    if(topicFilter!=='all' && t.topic!==topicFilter) return false;
+    if(searchQuery){
+      const q=searchQuery.toLowerCase();
+      if(!t.text.toLowerCase().includes(q) && !t.name.toLowerCase().includes(q) && !t.screen_name.toLowerCase().includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function render(){
+  _vidIdx=0;
+  const filtered=getFiltered();
+  document.getElementById('count-badge').textContent=filtered.length+' saved';
+  const feed=document.getElementById('feed');
+  if(!filtered.length){
+    feed.innerHTML='<div class="empty"><svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg><p>No bookmarks found</p></div>';
+    return;
+  }
+  feed.innerHTML=filtered.map((t,i)=>renderTweet(t,i*10)).join('');
+}
+
+function updateStats(){
+  document.getElementById('stat-total').textContent=TWEETS.length;
+  document.getElementById('stat-photos').textContent=TWEETS.filter(t=>t.media.some(m=>m.type==='photo')).length;
+  document.getElementById('stat-videos').textContent=TWEETS.filter(t=>t.media.some(m=>m.type==='video'||m.type==='gif')).length;
+  document.getElementById('stat-authors').textContent=new Set(TWEETS.map(t=>t.screen_name)).size;
+}
+
+// media filter clicks
+document.getElementById('media-filters').addEventListener('click',e=>{
+  const btn=e.target.closest('[data-media]'); if(!btn) return;
+  document.querySelectorAll('[data-media]').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  mediaFilter=btn.dataset.media;
+  render();
+});
+// topic filter clicks
+document.getElementById('topic-filters').addEventListener('click',e=>{
+  const btn=e.target.closest('[data-topic]'); if(!btn) return;
+  document.querySelectorAll('[data-topic]').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  topicFilter=btn.dataset.topic;
+  render();
+});
+// search
+let _st;
+document.getElementById('search').addEventListener('input',e=>{
+  clearTimeout(_st);
+  _st=setTimeout(()=>{ searchQuery=e.target.value.trim(); render(); },200);
+});
+
+updateStats();
+render();
+</script>
+</body>
+</html>
