@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="14" fill="#f0c040"/>
+  <!-- Stem -->
+  <rect x="13" y="13" width="9" height="38" fill="#111"/>
+  <!-- Top bump -->
+  <path d="M13 13 H37 C44 13 51 16 51 22 C51 28 44 32 37 32 H13 Z" fill="#111"/>
+  <!-- Bottom bump (wider/taller) -->
+  <path d="M13 31 H38 C46 31 53 35 53 41 C53 47 46 51 38 51 H13 Z" fill="#111"/>
+  <!-- Top interior cutout -->
+  <path d="M22 20 H35 C39 20 42 22 42 25 C42 28 39 30 35 30 H22 Z" fill="#f0c040"/>
+  <!-- Bottom interior cutout -->
+  <path d="M22 38 H36 C41 38 44 40 44 42.5 C44 45 41 44 36 44 H22 Z" fill="#f0c040"/>
+</svg>
